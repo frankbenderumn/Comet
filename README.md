@@ -1,6 +1,7 @@
 # OVERVIEW
 
-This is a package manager to help to power the Jericho Distributed System
+This is a package manager to help to power the Jericho Distributed System.
+This package manager is currently only for unix based systems
 
 ### Installation
 
@@ -15,10 +16,12 @@ and the name of the user uploading
 
 For more info on commands enter ```comet help```
 
+### Commands
+
 ```
 ================================================================================
                             Comet Package Manager
-=============================-==================================================
+================================================================================
 install                            Install a package within the registry
 uninstall                          Uninstall a package within the registry
 list                               List all packages with detailed information

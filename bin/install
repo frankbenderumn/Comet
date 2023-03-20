@@ -1,3 +1,13 @@
 #!/bin/bash
 
+ROOTDIR=`git rev-parse --show-toplevel`
+source ${ROOTDIR}/config/comet
+
+cd ${COMET}/source
+git clone https://frankbenderumn:${TOKEN}@github.com/frankbenderumn/Comet.git
+mv ./Comet ./repo
+cd repo
+chmod +x ./bin/compile
+./bin/compile
+
 # placeholder to install from github and copy tui to /bin directory

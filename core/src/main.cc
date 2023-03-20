@@ -201,10 +201,7 @@ int pipe(const char* script, char*** args) {
     pid_t pid;
     int status;
 
-    BGRE("Jesus Fucking Christ!\n");
-
     if (*args == NULL) {
-        BRED("Amelia ghosted you!\n");
         return -1;
     }
 
@@ -510,76 +507,6 @@ int add_index(Package** packages, int num_packages, const char* index_path, int 
     free(new_index);
 
     return 0;
-}
-
-void we_neva_leavin_da_hood(const char* filename) {
-    // Open the file for reading
-    FILE* fp = fopen(filename, "rb");
-    if (fp == NULL) {
-        perror("Failed to open script file");
-        return;
-    }
-
-    // Determine the size of the file
-    fseek(fp, 0L, SEEK_END);
-    long size = ftell(fp);
-    rewind(fp);
-
-    // Allocate a buffer to hold the file contents
-    char* buffer = (char*)malloc(sizeof(char) * size);
-    if (buffer == NULL) {
-        perror("Failed to allocate memory for script");
-        fclose(fp);
-        return;
-    }
-
-    // Read the file contents into the buffer
-    size_t read_size = fread(buffer, sizeof(char), size, fp);
-    if (read_size != size) {
-        perror("Failed to read entire script file");
-        free(buffer);
-        fclose(fp);
-        return;
-    }
-
-    // Close the file
-    fclose(fp);
-
-    // Add a null terminator to the buffer
-    buffer[size] = '\0';
-
-    // Split the buffer into arguments for execv
-    int num_args = 0;
-    char* token = strtok(buffer, " \n");
-    while (token != NULL) {
-        num_args++;
-        token = strtok(NULL, " \n");
-    }
-
-    char** args = (char**)malloc(sizeof(char*) * (num_args + 1));
-    if (args == NULL) {
-        perror("Failed to allocate memory for arguments");
-        free(buffer);
-        return;
-    }
-
-    token = strtok(buffer, " \n");
-    int i = 0;
-    while (token != NULL) {
-        args[i] = token;
-        i++;
-        token = strtok(NULL, " \n");
-    }
-    args[i] = NULL;
-
-    // Execute the script using execv
-    execv(args[0], args);
-
-    // If execv returns, it must have failed
-    perror("Failed to execute script");
-    free(args);
-    free(buffer);
-    return;
 }
 
 int verify_index(Package* new_package, Package* index_package, const char* index_path) {
@@ -967,17 +894,17 @@ int load_index(Package** packages, int* len, const char* index_path, int row_len
 }
 
 int comet_setup() {
-    if (create_dir("./.internal") < 0) {
+    if (create_dir("/usr/local/comet/.internal") < 0) {
         BRED("Failed to create internal directory!\n");
         return -1;
     }
 
-    if (create_dir("./.internal/cache") < 0) {
+    if (create_dir("/usr/local/comet/.internal/cache") < 0) {
         BRED("Failed to create internal cache directory!\n");
         return -1;
     }
 
-    if (create_dir("./.internal/package") < 0) {
+    if (create_dir("/usr/local/comet/.internal/package") < 0) {
         BRED("Failed to create internal package directory!\n");
         return -1;
     }
@@ -1060,6 +987,10 @@ int verify_dirs() {
         BRED("Error initing comet dirs\n"); return -1;
     }
 
+    if (!exists("/usr/local/comet/.internal")) {
+        BRED("Error initing comet dirs\n"); return -1;
+    }
+
 
     return 0;
 }
@@ -1078,8 +1009,14 @@ int main(int argc, char* argv[]) {
         opt = argv[2];
     }
 
+    const char* index_path = "/usr/local/comet/.internal/index";
+    const char* exec_dir = "/usr/local/comet/.internal/exec/";
+    const char* lib_dir = "/usr/local/comet/.internal/lib/";
+    const char* package_dir = "/usr/local/comet/.internal/package/";
+    char script_dir[] = "/usr/local/comet/.internal/package/";
+
     int row_length = 136;
-    const char* index_path = "./.internal/index";
+
     Package* packages = NULL;
 
     if (comet_setup() < 0) {
@@ -1097,16 +1034,12 @@ int main(int argc, char* argv[]) {
     if (strcmp(command, "install") == 0) {
 
         MAG("Installing...\n");
-        std::string s = "./bin/" + std::string(opt);
-        MAG("command: %s\n", s.c_str());
 
         int num_packs = 0;
         if (load_index(&packages, &num_packs, index_path, row_length) < 0) {
             BRED("Failed to load index!\n");
             return -1;
         }
-
-        char script_dir[] = "./.internal/package/";
         
         int num_scripts = 0;
         char** scripts = list_files((char*)script_dir, &num_scripts);
@@ -1163,8 +1096,6 @@ int main(int argc, char* argv[]) {
 
         }
 
-//////////////////////////////////////////////////
-        const char* package_dir = "./.internal/package/";
         char* package_path = (char*)malloc(sizeof(char) * (strlen(package_dir) + strlen(opt) + 1));
 
         strncpy(package_path, package_dir, strlen(package_dir));
@@ -1181,8 +1112,6 @@ int main(int argc, char* argv[]) {
 
         BMAG("Ascii script\n");
         MAG("%s\n", (char*)script_ascii);
-
-        const char* exec_dir = "./.internal/exec/";
 
         if (create_dir(exec_dir) < 0) {
             BRED("Failed to create exec dir for command script!\n");
@@ -1261,15 +1190,6 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        char syscom[10 + strlen(exec_path)];
-        memcpy(syscom, "dos2unix ", 9);
-        memcpy(syscom + 9, exec_path, strlen(exec_path));
-        syscom[9 + strlen(exec_path)] = 0;
-
-        BYEL("Syscom: %s\n", syscom);
-
-        // system(syscom);
-
         int status;
         if ((status = pipe(exec_path, &passables)) < 0) {
             BRED("Failed to pipe command '%s'\n", exec_path);
@@ -1285,28 +1205,108 @@ int main(int argc, char* argv[]) {
             return -1;
         }
 
-        BRED("Need to delete exec dir after! For security reasons.\n");
+        char package_lib_path[strlen(lib_dir) + strlen(opt) + 1];
+        memcpy(package_lib_path, lib_dir, strlen(lib_dir));
+        memcpy(package_lib_path + strlen(lib_dir), opt, strlen(opt));
+        package_lib_path[strlen(lib_dir) + strlen(opt)] = 0;
+
+        const char* lib_source_dir = "/usr/local/comet/build/";
+        // {}/lib";
+        char lib_source[strlen(lib_source_dir) + strlen(opt) + 7];
+        memcpy(lib_source, lib_source_dir, strlen(lib_source_dir));
+        memcpy(lib_source + strlen(lib_source_dir), opt, strlen(opt));
+        size_t cursor = strlen(lib_source_dir) + strlen(opt);
+        memcpy(lib_source + cursor, "/lib", 4);
+        lib_source[cursor + 4] = 0;
+
+        BGRE("Lib source dir: %s\n", lib_source);
+        BGRE("Lib storage dir: %s\n", package_lib_path);
+
+        if (!exists(lib_source)) {
+            BRED("Lib sources not found\n");
+            return -1;
+        }
+
+        int libct = 0;
+        char** libs = list_files(lib_source, &libct);
+        char** files = NULL;
+
+        i = 0;
+        int j = 0;
+        int num_libs = 0;
+        while(i < libct) {
+            printf("Libfile: %s\n", libs[i]);
+            char* ptr = strstr(libs[i], ".so");
+            if (ptr != NULL) {
+                char* lib_name = (char*)malloc(sizeof(char) * 32);
+                if (last_of(lib_name, libs[i], '/') < 0) {
+                    BRED("Failed to find the last of us '%c'\n", '/');
+                    free(lib_name);
+                    continue;
+                }
+                BBLU("Library name: %s\n", lib_name);
+                files = (char**)realloc(files, (j + 1) * sizeof(char*));
+                files[j] = lib_name;
+                j++;
+            }
+            i++;
+        }
+        num_libs = j;
+        BBLU("Number of libs!: %i\n", num_libs);
+
+        FILE* lib_write = fopen(package_lib_path, "wb");
+
+        if (!lib_write) {
+            BRED("Failed to open package library index for write!\n");
+            return -1;
+        }
+
+        i = 0;
+        while (i < num_libs) {
+            bytes_t lib_bytes = (bytes_t)malloc(sizeof(BYTE) * 32);
+            if (pad((bytes_t)files[i], 32) < 0) {
+                BRED("Failed to pad library name!\n");
+                return -1;
+            }
+            fwrite(lib_bytes, 1, 32, lib_write);
+            i++;
+        }
+
+        fclose(lib_write);
+
+        FILE* lib_read = fopen(package_lib_path, "rb");
+        if (!lib_read) {
+            BRED("Failed to open package library index for write!\n");
+            return -1;
+        }
+
+        char lib_read_buffer[32];
+        while (fread(lib_read_buffer, 1, 32, lib_read) == 32) {
+            BMAG("Read lib: %s\n", lib_read_buffer);
+        }
+
+
+        // NEED TO cleanup lib files
+        MAG("Don't forget to cleanup lib files!\n");
+
+        exit(1);
 
         free(passables[0]);
         free(passables[1]);
         free(passables[2]);
         free(passables);
 
-        free(temp_path);
-        free(exec_path);
-        free(exec_file);
-        free(script_bin);
-        free(package_path);
+        // free(temp_path);
+        // free(exec_path);
+        // free(exec_file);
+
+        // free(script_bin);
+        // free(package_path);
 
         if (remove_dir(exec_dir) < 0) {
             BRED("Failed to remove directory!\n");
             return -1;
         }
-
-///////////////////////////////////////////////////////////
-
-
-///////////////////////////////////////////////////////////
 
         BRED("Num packages in index: %i\n", num_packs);
         BYEL("====================================\n");
@@ -1336,8 +1336,6 @@ int main(int argc, char* argv[]) {
 
         alter_index(&packages, &packages_new, index_path, row_length);
 
-        // BBLU("Program status: %i\n", status);
-
     cleanup:
         Package* head = packages;
         while (head != NULL) {
@@ -1352,6 +1350,7 @@ int main(int argc, char* argv[]) {
             head = head->next;
             free(temp);
         }
+
     } else if (strcmp(command, "help") == 0 || strcmp(command, "-h") == 0 || strcmp(command, "--help") == 0) {
         printf("======================================================================================================\n");
         printf("                                       Comet Package Manager                                          \n");
@@ -1389,11 +1388,13 @@ int main(int argc, char* argv[]) {
             BRED("Invalid number arguments for command show!\n");
             return -1;
         }
+
         int num_packages;
         if (load_index(&packages, &num_packages, index_path, row_length) < 0) {
             BRED("Failed to load index on command show!\n");
             return -1;
         }
+
         Package* head = packages;
         while (head != NULL) {
             if (strcmp(head->name, argv[2]) == 0) {
@@ -1404,6 +1405,7 @@ int main(int argc, char* argv[]) {
         }
 
     } else if (strcmp(command, "list") == 0) {
+        
         int num_packages;
         if (load_index(&packages, &num_packages, index_path, row_length) < 0) {
             BRED("Failed to load index on command show!\n");
@@ -1415,6 +1417,7 @@ int main(int argc, char* argv[]) {
             show_package(head);
             head = head->next;
         }
+
     } else if (strcmp(command, "upload") == 0) {
         if (argc != 4) {
             BRED("Invalid number of arguments for command upload!\n");
@@ -1423,7 +1426,7 @@ int main(int argc, char* argv[]) {
 
         char* script = argv[2];
         char* signature = argv[3];
-        const char* package_dir = "./.internal/package/";
+
         char* package_ptr = NULL;
 
         printf("Script path: %s\n", script);
@@ -1484,6 +1487,7 @@ int main(int argc, char* argv[]) {
         fclose(fp);
         free(script_bin);
         free(write_bin);
+
     } else if (strcmp(command, "script") == 0) {
         if (argc != 4) {
             BRED("Invalid number of arguments provided for command script!\n");
@@ -1492,8 +1496,6 @@ int main(int argc, char* argv[]) {
 
         char* package_name = argv[2];
         char* script_command = argv[3];
-
-        char script_dir[] = "./.internal/package/";
 
         char* package_path = (char*)malloc(strlen(package_name) + strlen(script_dir) + 1);
 
@@ -1556,8 +1558,6 @@ int main(int argc, char* argv[]) {
 
         BMAG("Ascii script\n");
         MAG("%s\n", (char*)script_ascii);
-
-        const char* exec_dir = "./.internal/exec/";
 
         if (create_dir(exec_dir) < 0) {
             BRED("Failed to create exec dir for command script!\n");
@@ -1692,14 +1692,13 @@ int main(int argc, char* argv[]) {
         Package* head = packages;
         while (head != NULL) {
             if (strcmp(head->name, opt) == 0) {
-                BLU("Update time muthafucka!\n");
                 head->version = 102;
                 head->updated_at = (long)time(NULL);
                 head->created_at = (long)0;
-                memcpy(head->script, "ghosted_again", 14);
+                memcpy(head->script, "hate_my_life", 14);
                 head->script[14] = 0;
-                printf("Headace creation: %li\n", head->created_at);
-                printf("Headace updation: %li\n", head->updated_at);
+                printf("Headache creation: %li\n", head->created_at);
+                printf("Headache updation: %li\n", head->updated_at);
                 if (update_index_package(head, index_path, row_length) < 0) {
                     BRED("Failed to update index by package!\n");
                     return -1;
@@ -1772,6 +1771,14 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
+        if (create_dir("/usr/local/comet/.internal") < 0) {
+            BRED("Error initing comet dirs\n"); return -1;
+        }
+
+        if (chmod("/usr/local/comet/.internal", 0755) == -1) {
+            printf("Error setting executable bit on temporary file.\n");
+            return 1;
+        }
 
     }
 

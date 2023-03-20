@@ -1,0 +1,6 @@
+#!/bin/bash
+
+echo -e "Let's get this bread"
+
+echo -e "Welcome to the shit show: ${1}"
+echo -e "First argument is: ${0}"

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# need to create installation (.so)
+
+ROOTDIR=`git rev-parse --show-toplevel`
+source ${ROOTDIR}/config/comet
+if [[ "$1" == "install" ]]; then
+    echo "${TOKEN}"
+    cd ${COMET}/source
+    git clone https://frankbenderumn:${TOKEN}@github.com/frankbenderumn/prizm-cxx.git
+    mv prizm-cxx prizm-cxx-source
+else
+    echo -e "\033[1;31mInvalid argument for package prizm\033[0m"
+fi

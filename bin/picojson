@@ -1,0 +1,13 @@
+#!/bin/bash
+ROOTDIR=`git rev-parse --show-toplevel`
+source "${ROOTDIR}/config/comet"
+if [[ "$1" == "install" ]]; then
+    cd ${COMET}/source
+    git clone https://github.com/kazuho/picojson.git
+    mv picojson picojson-source
+    cd ..
+    cp ./source/picojson-source/picojson.h ./include/picojson.h
+    # cp picojson.h ${COMET}/include/picojson.h
+else
+    echo -e "\033[1;31mInvalid argument for package picojson\033[0m"
+fi

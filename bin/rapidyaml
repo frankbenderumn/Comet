@@ -1,0 +1,41 @@
+#!/bin/bash
+ROOTDIR=`git rev-parse --show-toplevel`
+source ${ROOTDIR}/config/comet
+# source ${ROOTDIR}/config/device
+
+if [[ "$1" == "install" ]]; then
+    if [[ -d "${COMET}/source/rapidyaml-source" ]]; then
+        echo -e "${YEL}rapidyaml already installed."
+    # else
+    #     if [[ -d "${EXT_PATH}/rapidyaml-source" ]]; then
+    #         cd ${EXT_PATH}
+    #         mkdir -p rapidyaml
+    #         cd rapidyaml-source
+    #         mkdir -p build
+    #         cd build
+    #         cmake .. -DCMAKE_INSTALL_PREFIX=${EXT_PATH}/rapidyaml
+    #         make -j
+    #         make -j install
+    else
+        cd ${COMET}/source
+        git clone --recursive https://github.com/biojppm/rapidyaml.git
+        mv rapidyaml rapidyaml-source
+        # mkdir -p rapidyaml
+        cd rapidyaml-source
+        mkdir -p cmake-build
+        cd cmake-build
+        cmake .. -DCMAKE_INSTALL_PREFIX=${COMET}/build/rapidyaml
+        make -j
+        make -j install
+    fi
+    # fi
+elif [[ "$1" == "uninstall" ]]; then
+    cd ${COMET}
+    rm -rf rapidyaml
+elif [[ "$1" == "purge" ]]; then
+    cd ${COMET}
+    rm -rf rapidyaml
+    rm -rf rapidyaml-source
+else
+    echo -e "${RED}Invalid command for yaml-cpp installer"
+fi

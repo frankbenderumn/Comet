@@ -1,0 +1,12 @@
+#!/bin/bash
+
+ROOTDIR=`git rev-parse --show-toplevel`
+source ${ROOTDIR}/config/comet
+if [[ "$1" == "install" ]]; then
+    echo "${TOKEN}"
+    cd ${COMET}/source
+    git clone https://frankbenderumn:${TOKEN}@github.com/frankbenderumn/jericho-cxx.git
+    mv jericho-cxx jericho-source
+else
+    echo -e "\033[1;31mInvalid argument for package jericho\033[0m"
+fi

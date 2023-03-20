@@ -1,0 +1,105 @@
+ROOTDIR=`git rev-parse --show-toplevel`
+source ${ROOTDIR}/config/psql
+source ${ROOTDIR}/config/device
+source ${ROOTDIR}/config/settings
+FILE=${DB_PATH}/postgresql-$PSQL_VERSION.tar.gz
+
+installPsql () {
+    cd ${ROOTDIR}
+    LOC=$1
+    if [ -z "$1" ]
+    then
+        LOC=postgres
+    fi
+    if [[ -d "${DB_PATH}/postgres" ]]; then
+        echo -e "\033[1;32mPostgres already installed.\033[0m"
+    else
+        mkdir -p ${DB_PATH}/$LOC
+        cd ${DB_PATH}/postgres-source
+        ./configure --prefix=${DB_PATH}/$LOC --enable-shared
+        make -j`nproc`
+        sudo make install
+        ${DB_PATH}/postgres/bin/createuser -s celerity
+        cd ${DB_PATH}
+        sudo rm -f postgresql-*.tar.gz
+        if [[ "$2" == "default" ]]; then
+            ${ROOTDIR}/bin/psql/driver install
+        else
+            # check for drivers here
+            echo -e "\033[1;31mPostgres drivers not found.\033[0m"
+            echo -e "\033[1;31mWould you like to install the psql driver?\033[0m"
+            read -p '[Y/N]: ' doInstall
+            if [ "${doInstall}" == "Y" ] || [ "${doInstall}" == "y" ]; then
+                ${ROOTDIR}/bin/psql/driver install
+            else
+                echo "Skipping postgres drivers. Use celerity psql:driver install to install later."
+            fi
+        fi
+    fi
+}
+
+extractPsql () {
+    cd ${DB_PATH}
+    echo "\033[1;33mExtracting postgresql ${PSQL_VERSION}...\033[0m"  
+    TAR=${DB_PATH}/postgresql-$PSQL_VERSION.tar.gz
+    tar -xf $TAR
+    mv postgresql-$PSQL_VERSION postgres-source
+    installPsql
+}
+
+default () {
+    echo -e "\033[1;33mInstalling Postgresql version ${PSQL_VERSION}...\033[0m"
+    cd ${DB_PATH}
+    wget "https://ftp.postgresql.org/pub/source/v${PSQL_VERSION}/postgresql-${PSQL_VERSION}.tar.gz"
+    tarFile=${DB_PATH}/postgresql-$PSQL_VERSION.tar.gz
+    if test -f "$tarFile"; then
+        echo -e "\033[1;32mPostgresql tar downloaded.\033[0m"
+        extractPsql
+    else 
+        echo -e "\033[1;31mFailed to download postgresql tar version ${PSQL_VERSION}\033[0m"
+    fi
+}
+
+if [[ -d "${DB_PATH}/postgres" ]]; then
+    echo -e "\033[1;32mPostgres already installed.\033[0m"
+else
+    if test -f "$FILE"; then
+        echo -e "\033[1;33mPostgresql tar found. Version ${PSQL_VERSION} being installed.\033[0m"
+        if [ -d "${DB_PATH}/postgres-source" ]; then
+            echo -e "\033[1;32mpostgres tar already downloaded and unzipped\033[0m"
+            installPsql
+        else 
+            extractPsql
+        fi 
+    else 
+        if [ "$1" == "default" ]; then
+            default
+        else
+            echo -e "\033[1;31mPostgresql not found.\033[0m"
+            echo -e "Would you like to install?"
+            read -p '[Y/N]: ' doInstall
+            if [ "${doInstall}" == "Y" ] || [ "${doInstall}" == "y" ]; then
+                echo -e "\033[1;33mChoose a version.\033[0m"
+                echo "Press Enter for default. Default is 14.4."
+                read -p "Version: " doVersion
+                if [ "$doVersion" == "" ]; then 
+                    default
+                else
+                    echo -e "\033[1;33mInstalling version ${doVersion}...\033[0m"
+                    cd ${DB_PATH}
+                    wget "https://ftp.postgresql.org/pub/source/v${doVersion}/postgresql-${doVersion}.tar.gz"
+                    tarFile=${DB_PATH}/postgresql-$doVersion.tar.gz
+                    if test -f "$tarFile"; then
+                        echo -e "\033[1;32mPostgresql tar downloaded.\033[0m"
+                        PSQL_VERSION=$doVersion
+                        extractPsql
+                    else 
+                        echo -e "\033[1;31mFailed to download postgresql tar version ${doVersion}\033[0m"
+                    fi
+                fi
+            else
+                echo -e "\033[1;32mTerminating postgresql install\033[0m"
+            fi
+        fi
+    fi
+fi

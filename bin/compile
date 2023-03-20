@@ -1,0 +1,10 @@
+#!/bin/bash
+mkdir -p build
+mkdir -p build/bin
+mkdir -p build/lib
+mkdir -p build/include
+mkdir -p cmake-build
+cd cmake-build
+cmake .. -DCMAKE_INSTALL_PREFIX=../build/
+make -j`nproc`
+make -j`nproc` install

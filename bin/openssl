@@ -1,0 +1,19 @@
+#!/bin/bash
+ROOT="/usr/local/comet"
+if [[ "$1" == "install" ]]; then
+    cd "/usr/local/comet/source"
+    git clone https://github.com/openssl/openssl.git
+    mv openssl openssl-source
+    mkdir -p "${ROOT}/build/openssl"
+    cd openssl-source
+    ./Configure --prefix=${ROOT}/build/openssl --openssldir=${ROOT}/build/openssl '-Wl,-rpath,$(LIBRPATH)'
+    make -j`nproc`
+    sudo make -j`nproc` install
+    cd ../..
+    mkdir -p ${ROOT}/include/openssl
+    mkdir -p ${ROOT}/lib
+    sudo cp -r ${ROOT}/build/openssl/include/openssl ${ROOT}/include
+    sudo cp -r ${ROOT}/build/openssl/lib64/* ${ROOT}/lib
+else
+    echo -e "\033[1;31mInvalid argument given to openssl package\033[0m"
+fi

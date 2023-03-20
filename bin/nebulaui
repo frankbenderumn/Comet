@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# this one isn't a buildable probably should keep out of comet
+
+ROOTDIR=`git rev-parse --show-toplevel`
+source ${ROOTDIR}/config/tokens
+if [[ "$1" == "install" ]]; then
+    if [[ -d "${ROOTDIR}/nebula/frontend" ]]; then
+        echo -e "\033[0mNebulaUI already installed.\033[0m"
+    else
+        git clone https://frankbenderumn:${TOKEN}@github.com/frankbenderumn/nebulaui.git
+        git checkout v2
+        cd nebulaui
+        # mv frontend ${ROOTDIR}/frontend
+        # cd ..
+        # rm -rf nebulaui
+    fi 
+elif [[ "$1" == "update" ]]; then
+    rm -rf frontend
+    git clone https://frankbenderumn:${TOKEN}@github.com/frankbenderumn/nebulaui.git
+    cd nebulaui
+    mv frontend ${ROOTDIR}/frontend
+    cd ..
+    rm -rf nebulaui
+elif [[ "$1" == "uninstall" ]]; then
+    rm -rf frontend
+else
+    echo -e "\033[1;31mInvalid argument for package nebulaui\033[0m"
+fi

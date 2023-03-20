@@ -1,3 +1,30 @@
 # OVERVIEW
 
-This is a package manager helper to power the Jericho Distributed System
+This is a package manager to help to power the Jericho Distributed System
+
+### Installation
+
+After cloning the repo, run ```sudo ./bin/install``` script
+This will install the necessary binaries and setup up the directories
+needed for comet to manage your packages.
+
+Upon installation running ```sudo comet init``` will set up your environment.
+
+To install a package a script must first be uploaded with the package name
+and the name of the user uploading 
+
+For more info on commands enter ```comet help```
+
+```
+================================================================================
+                            Comet Package Manager
+=============================-==================================================
+install                            Install a package within the registry
+uninstall                          Uninstall a package within the registry
+list                               List all packages with detailed information
+upload <script> <user>             Upload a package to the registry with API token
+show <package_name>                Get detailed information about a package
+update <package_name> <new_script> Update package with a new script
+script <package_name>              For debug purposes, get the ascii bash script
+load                               Reads package names from a comet.txt file to install required packages
+```

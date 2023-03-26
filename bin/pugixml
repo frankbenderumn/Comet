@@ -8,7 +8,7 @@ if [[ "$1" == "get" ]]; then
     else
         echo -e "${YEL}Installing pugixml...${CLR}"
         cd "${COMET}/source"
-        wget https://github.com/zeux/pugixml/releases/download/v1.12/pugixml-1.12.tar.gz
+        wget -q https://github.com/zeux/pugixml/releases/download/v1.12/pugixml-1.12.tar.gz
         tar -xf pugixml-1.12.tar.gz
         mv pugixml-1.12 pugixml-source
         rm -f pugixml-1.12.tar.gz
@@ -37,23 +37,26 @@ elif [[ "$1" == "install" ]]; then
         #     make install
         # else
         echo -e "${YEL}Installing pugixml...${CLR}"
-        cd ${COMET}
-        wget https://github.com/zeux/pugixml/releases/download/v1.12/pugixml-1.12.tar.gz
+        cd ${COMET}/source
+        wget -q https://github.com/zeux/pugixml/releases/download/v1.12/pugixml-1.12.tar.gz
         tar -xf pugixml-1.12.tar.gz
-        mv ${COMET}/pugixml-1.12 ${COMET}/pugixml-source
-        rm -f ${COMET}/pugixml-1.12.tar.gz
+        mv ./pugixml-1.12 ./pugixml-source
+        rm -f ./pugixml-1.12.tar.gz
         # mkdir -p ${COMET}/pugixml
-        cd ${COMET}/pugixml-source
+        cd ./pugixml-source
         mkdir -p cmake-build
         cd cmake-build
         cmake .. -DCMAKE_INSTALL_PREFIX=${COMET}/build/pugixml -DBUILD_SHARED_LIBS=ON
         make -j
         make install
-        cd ../..
+        echo -e "I WANT TO CRY\n"
+        echo `pwd`
+        cd ../../..
         sudo cp -r ./build/pugixml/include ./include/pugixml
         sudo cp -r ./build/pugixml/lib/* ./lib
-        cd ./build/pugixml/lib
+        cd ${COMET}/lib
         sudo rm -rf cmake
+        sudo rm -rf pkgconfig
         # fi
     fi
 elif [[ "$1" == "uninstall" ]]; then

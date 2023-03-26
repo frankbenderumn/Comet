@@ -1,0 +1,16 @@
+#!/bin/bash
+ROOTDIR=`git rev-parse --show-toplevel`
+source ${ROOTDIR}/config/comet
+cd ${COMET}/source
+git clone https://github.com/jtv/libpqxx.git
+mv libpqxx pqxx-source
+cd pqxx-source
+git checkout 6.4
+PSQL_DIR=${COMET}/build/postgres
+mkdir -p ${COMET}/build/pqxx
+./configure PG_CONFIG=/usr/local/comet/build/postgres/bin/pg_config --prefix=/usr/local/comet/build/pqxx --with-postgres-lib=/usr/local/comet/build/postgres/lib --with-postgres-include=/usr/local/comet/build/postgres/include --disable-documentation --enable-shared --disable-static
+make -j`nproc`
+make install -j`nproc`
+cp -rf ${COMET}/build/pqxx/include ${COMET}/include
+cp -rf ${COMET}/build/pqxx/lib/* ${COMET}/lib
+rm -rf ${COMET}/lib/pkgconfig

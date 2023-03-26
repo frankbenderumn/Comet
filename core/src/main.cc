@@ -7,6 +7,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <fcntl.h>
 
 #include <string>
 
@@ -79,11 +80,25 @@ void br(void) { printf("\n"); }
 #define BGRY(...) grey(); bold(); printf(__VA_ARGS__); clearcolor();
 #define BBLA(...) black(); bold(); printf(__VA_ARGS__); clearcolor();
 
+#define ADDR(str, var) magenta(); bold(); printf("ADDR for (%s): %p\n", str, (void*)var); clearcolor(); 
+
 typedef unsigned char* bytes_t;
 typedef unsigned char BYTE;
 
 int exists(const char* filename) {
     return access(filename, F_OK) != -1;
+}
+
+void disable_terminal(int* original_stdout) {
+    *original_stdout = dup(STDOUT_FILENO);
+    // Redirect stdout to /dev/null
+    int null_fd = open("/dev/null", O_WRONLY);
+    dup2(null_fd, STDOUT_FILENO);
+}
+
+void enable_terminal(int* original_stdout) {
+    dup2(*original_stdout, STDOUT_FILENO);
+    close(*original_stdout);
 }
 
 time_t updated_at(const char* filename) {
@@ -119,40 +134,39 @@ int create_dir(const char *path) {
     return 0;
 }
 
-char** list_files(char* directory, int* count) {
+int list_files(char*** files, char* directory, int* count) {
     DIR *dir;
     struct dirent *ent;
-    char** files = NULL;
     int i = 0;
     
     dir = opendir(directory);
     if (dir != NULL) {
         while ((ent = readdir(dir)) != NULL) {
             if (strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0) {
-                char* file_name = (char*)malloc(strlen(directory) + strlen(ent->d_name) + 1);
-                strcpy(file_name, directory);
-                strcat(file_name, ent->d_name);
-                files = (char**)realloc(files, (i + 1) * sizeof(char*));
-                files[i++] = file_name;
+                *files = (char**)realloc(*files, (i + 1) * sizeof(char*));
+                (*files)[i] = (char*)malloc(strlen(directory) + strlen(ent->d_name) + 1);
+                memcpy((*files)[i], directory, strlen(directory));
+                memcpy((*files)[i] + strlen(directory), ent->d_name, strlen(ent->d_name));
+                (*files)[i][strlen(directory) + strlen(ent->d_name)] = 0;
+                i++;
             }
         }
         closedir(dir);
     } else {
-        perror("Unable to open directory");
-        exit(EXIT_FAILURE);
+        BRED("Unable to open directory: %s\n", directory);
+        return -1;
     }
     *count = i;
-    return files;
+    return 0;
 }
 
-unsigned char* read_bin(const char* filename, long* size) {
+unsigned char* read_bin(const char* filename, size_t* size) {
     FILE* fp;
     unsigned char* buffer;
     size_t result;
 
     fp = fopen(filename, "rb");
     if (fp == NULL) {
-        *size = -1;
         return NULL;
     }
 
@@ -163,7 +177,6 @@ unsigned char* read_bin(const char* filename, long* size) {
     buffer = (unsigned char*)malloc(*size);
     if (buffer == NULL) {
         fclose(fp);
-        *size = -1;
         return NULL;
     }
 
@@ -171,7 +184,6 @@ unsigned char* read_bin(const char* filename, long* size) {
     if (result != *size) {
         free(buffer);
         fclose(fp);
-        *size = -1;
         return NULL;
     }
 
@@ -198,6 +210,10 @@ int len(char** arr) {
 }
 
 int pipe(const char* script, char*** args) {
+    BGRE("=================================\n");
+    BGRE("              Piping             \n");
+    BGRE("=================================\n");
+
     pid_t pid;
     int status;
 
@@ -213,15 +229,45 @@ int pipe(const char* script, char*** args) {
 
     printf("Array length is: %i\n", len(*args));
 
+    int null_fd = open("/dev/null", O_WRONLY);
+    if (null_fd < 0) {
+        perror("open");
+        return -1;
+    }
+
+    int saved_stdout = dup(STDOUT_FILENO);
+    if (saved_stdout < 0) {
+        perror("dup");
+        return -1;
+    }
+
+    if (dup2(null_fd, STDOUT_FILENO) < 0) {
+        perror("dup2");
+        return -1;
+    }
     /* Get and print my own pid, then fork and check for errors */
     // printf("My PID is %d\n", getpid());
     if ( (pid = fork()) == -1 ) {
         perror("Can't fork");
+        if (dup2(saved_stdout, STDOUT_FILENO) < 0) {
+            perror("dup2");
+            return -1;
+        }
+
+        close(saved_stdout);
+        close(null_fd);
         return -1;
     }
     if (pid == 0) {
         if ( execv(script, *args) ) {
             perror("Can't exec");
+            if (dup2(saved_stdout, STDOUT_FILENO) < 0) {
+                perror("dup2");
+                return -1;
+            }
+
+            close(saved_stdout);
+            close(null_fd);
             return -1;
         }
     } else if (pid > 0) {
@@ -247,33 +293,44 @@ int pipe(const char* script, char*** args) {
 
     } else {
         fprintf(stderr, "Something went wrong forking\n");
+        if (dup2(saved_stdout, STDOUT_FILENO) < 0) {
+            perror("dup2");
+            return -1;
+        }
+
+        close(saved_stdout);
+        close(null_fd);
         return -1;
     }
+
+    if (dup2(saved_stdout, STDOUT_FILENO) < 0) {
+        perror("dup2");
+        return -1;
+    }
+
+    close(saved_stdout);
+    close(null_fd);
+
     return status;
 }
 
-int pad(bytes_t bytes, int width) {
-    // a demo
-    // unsigned char str[] = { 'a', 'b', 'c' };
-    // int width = 10;
-    unsigned char *padded_str = (unsigned char *) malloc(width * sizeof(unsigned char));
-    
-    memcpy(padded_str, bytes, sizeof(bytes));
-    memset(padded_str + sizeof(bytes), 0x00, width - sizeof(bytes));
-    
-    printf("Original string: ");
-    for (int i = 0; i < sizeof(bytes); i++) {
-        printf("%02x ", bytes[i]);
+int pad(bytes_t bytes, size_t bytes_len, size_t width) {
+    if (bytes_len >= width) {
+        // No padding necessary
+        return 0;
     }
-    printf("\n");
     
-    printf("Padded string:   ");
-    for (int i = 0; i < width; i++) {
-        printf("%02x ", padded_str[i]);
+    bytes_t padded_bytes = (bytes_t) calloc(width, sizeof(BYTE));
+    if (padded_bytes == NULL) {
+        // Failed to allocate memory
+        return -1;
     }
-    printf("\n");
     
-    free(padded_str);
+    memcpy(padded_bytes, bytes, bytes_len);
+    memset(padded_bytes + bytes_len, 0x00, width - bytes_len);
+    
+    memcpy(bytes, padded_bytes, width);
+    free(padded_bytes);
     return 0;
 }
 
@@ -334,15 +391,15 @@ int package_serialize(Package* package, bytes_t data, size_t* size) {
         i++;
     }
 
-    BBLU("Is the bug here?: %li\n", package->created_at);
-    BBLU("Is the bug here?: %li\n", package->updated_at);
+    // BBLU("Is the timestamp bug here?: %li\n", package->created_at);
+    // BBLU("Is the timestamp bug here?: %li\n", package->updated_at);
 
     *size = offset;
     return 0;
 }
 
 int package_create(Package* package, Package** packages, const char* name, int version, const char* script, MemMap** mmap, int num_attrs) {
-    const char* package_dir = "./.internal/package/";
+    const char* package_dir = "/usr/local/comet/.internal/package/";
     char* package_path = (char*)malloc(sizeof(char) * (strlen(package_dir) + strlen(name) + 1));
     strncpy(package_path, package_dir, strlen(package_dir));
     strncpy(package_path + strlen(package_dir), name, strlen(name));
@@ -447,9 +504,9 @@ void dump_index(Package* packages) {
     }
 }
 
-long fsize(FILE* fp) {
+size_t fsize(FILE* fp) {
     fseek(fp, 0, SEEK_END);
-    long sz = ftell(fp);
+    size_t sz = ftell(fp);
     rewind(fp);
     return sz;
 }
@@ -463,7 +520,7 @@ int add_index(Package** packages, int num_packages, const char* index_path, int 
         BRED("Index does not exist!\n");
         index_exist = 0;
     }
-    long sz = 0;
+    size_t sz = 0;
     bytes_t original = read_bin(index_path, &sz);
     if (fp) fclose(fp);
 
@@ -557,7 +614,7 @@ int update_index_package(Package* p, const char* index_path, int row_length) {
         return -1;
     }
 
-    long sz = 0;
+    size_t sz = 0;
     bytes_t bytes = read_bin(index_path, &sz);
     bytes_t new_index = (bytes_t)malloc(sizeof(BYTE) * sz);
 
@@ -642,7 +699,7 @@ void alter_index(Package** index, Package** new_packages, const char* index_path
     int old_len = 0;
     while (package_head != NULL) {
         while (index_head != NULL) {
-            BMAG("%s (%li) == %s (%li)\n", package_head->name, sizeof(package_head->name), index_head->name, sizeof(index_head->name));
+            // BMAG("%s (%li) == %s (%li)\n", package_head->name, sizeof(package_head->name), index_head->name, sizeof(index_head->name));
             if (strcmp(index_head->name, package_head->name) == 0) {
                 BGRE("INDEX MATCH detected!\n");
                 if (verify_index(package_head, index_head, index_path) < 0) {
@@ -670,17 +727,24 @@ void alter_index(Package** index, Package** new_packages, const char* index_path
                 old_len++;
             }
         }
+        if (package_head == NULL) {
+            break;
+        }
         package_head = package_head->next;
         index_head = *index;
     }
     if (match == 0) {
         BRED("No index match detected!\n");
     }
-    printf("Length of toAdd is: %i\n", old_len);
-    for (int i = 0; i < old_len; i++) {
-        printf("Package: %s\n", ptr[i]->name);
-        printf("Version: %i\n", ptr[i]->version);
-    }
+    // printf("Length of toAdd is: %i\n", old_len);
+    // for (int i = 0; i < old_len; i++) {
+    //     char* name_copy = strdup(ptr[i]->name);
+    //     printf("Package: %s\n", name_copy);
+    //     free(name_copy);
+    //     char* v_copy = strdup(ptr[i]->name);
+    //     printf("Package: %s\n", v_copy);
+    //     free(v_copy);
+    // }
 
     if (old_len > 0) {
         if (exists(index_path)) {
@@ -699,7 +763,7 @@ int delete_index(const char* index_path, int row_length, int offset) {
         return -1;
     }
 
-    long sz = 0;
+    size_t sz = 0;
     bytes_t data = read_bin(index_path, &sz);
 
     BRED("Mag size of index is: %li\n", sz);
@@ -745,7 +809,7 @@ int delete_index(const char* index_path, int row_length, int offset) {
 int scan_index(Package* p, const char* id, const char* index_path, int row_length, int start, int end, int* found) {
     BBLU("Scanning index!\n");
 
-    long sz;
+    size_t sz;
     bytes_t bytes = read_bin(index_path, &sz);
     // printf("Size of index: %li\n", sz);
     int num_records = (int)((sz / row_length));
@@ -758,9 +822,9 @@ int scan_index(Package* p, const char* id, const char* index_path, int row_lengt
         fclose(fp);
         return -1;
     }
-    BBLU("Index path: %s\n", index_path);
-    BBLU("Row length: %i\n", row_length);
-    BBLU("End - start: %i\n", end - start);
+    // BBLU("Index path: %s\n", index_path);
+    // BBLU("Row length: %i\n", row_length);
+    // BBLU("End - start: %i\n", end - start);
     char buffer[row_length];
     int j = 0;
     while (fread(buffer, 1, row_length, fp) == row_length) {
@@ -806,6 +870,8 @@ int scan_index(Package* p, const char* id, const char* index_path, int row_lengt
         }
         j++;
     }
+    fclose(fp);
+    free(bytes);
     BMAG("Done scanning!\n");
     return 0;
 }
@@ -822,7 +888,7 @@ int load_index(Package** packages, int* len, const char* index_path, int row_len
 
     if (exist) {
         // BLU("Reading bin file!\n");
-        long sz;
+        size_t sz;
         bytes_t bytes = read_bin(index_path, &sz);
         // printf("Size of index: %li\n", sz);
         int num_records = (int)((sz / row_length));
@@ -830,10 +896,12 @@ int load_index(Package** packages, int* len, const char* index_path, int row_len
         int i = 0;
         
         FILE* fp = NULL;
-        fp = fopen("./.internal/index", "rb");
+        fp = fopen("/usr/local/comet/.internal/index", "rb");
 
         if (!fp) {
-            BRED("Index does not exist!\n");
+            BRED("Cannot open file index\n");
+            free(bytes);
+            return -1;
         }
 
         char buffer[row_length];
@@ -923,6 +991,43 @@ int last_of(char* result, const char* str, char delim) {
     return 0;
 }
 
+int remove_dir_r(const char *path) {
+    DIR *dir = opendir(path);
+    struct dirent *entry;
+    char *full_path;
+
+    if (!dir) {
+        BRED("Error opening directory '%s'\n", path);
+        return -1;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        full_path = (char *) malloc(strlen(path) + strlen(entry->d_name) + 2);
+        sprintf(full_path, "%s/%s", path, entry->d_name);
+        if (entry->d_type == DT_DIR) {
+            remove_dir_r(full_path);
+        } else {
+            if (remove(full_path) == -1) {
+                BRED("Error removing file '%s'\n", full_path);
+                return -1;
+            }
+        }
+        free(full_path);
+    }
+
+    if (rmdir(path) == -1) {
+        BRED("Error removing directory '%s'\n", path);
+        return -1;
+    }
+
+    closedir(dir);
+    return 0;
+}
+
 int remove_dir(const char* path) {
     DIR* dir = opendir(path);
     struct dirent* entry;
@@ -983,16 +1088,817 @@ int verify_dirs() {
         BRED("Error initing comet dirs\n"); return -1;
     }
 
-    if (!exists("/usr/local/comet/env")) {
-        BRED("Error initing comet dirs\n"); return -1;
-    }
+    // if (!exists("/usr/local/comet/env")) {
+    //     BRED("Error initing comet dirs\n"); return -1;
+    // }
 
     if (!exists("/usr/local/comet/.internal")) {
-        BRED("Error initing comet dirs\n"); return -1;
+        BRED("Error initing comet dirs 'internal\n"); return -1;
+    }
+
+    if (!exists("/usr/local/comet/.internal/env")) {
+        BRED("Error initing comet dirs 'internal/env\n"); return -1;
+    }
+
+    if (!exists("/usr/local/comet/.internal/lib")) {
+        BRED("Error initing comet dirs 'internal/lib\n"); return -1;
+    }
+    
+    if (!exists("/usr/local/comet/.internal/registry")) {
+        BRED("Error initing comet dirs 'internal/registry\n"); return -1;
+    }
+    
+    if (!exists("/usr/local/comet/.internal/cache")) {
+        BRED("Error initing comet dirs 'internal/cache\n"); return -1;
     }
 
 
     return 0;
+}
+
+int verify_package(char** paths) {
+    int len = sizeof(paths)/sizeof(char*);
+    if (!exists(paths[10])) { BRED("Package not in registry\n"); } 
+    return 0;
+}
+
+char** load_dirs(char** dirs, char* comet_dir, const char* package_name, int* file_ct) {
+    *file_ct = 12;
+    dirs = (char**)calloc((size_t)*file_ct, sizeof(char*));
+
+    // important to understand the difference between a string literal and malloc'd string
+    dirs[0] = (char*)malloc(strlen(comet_dir) + 1); // char is 1 byte so no need for 1 * strlen(dir)
+    memcpy(dirs[0], comet_dir, strlen(comet_dir));
+    dirs[0][strlen(comet_dir)] = 0;
+    
+    const char* extensions[] = {
+        ".internal/index", 
+        ".internal/registry/", 
+        ".internal/lib/", 
+        ".internal/registry/", 
+        ".internal/lib/", 
+        "source/", 
+        "include/", 
+        "lib/", 
+        "build/", 
+        "deps/", 
+        "sub/"
+    };
+
+    const int num_extensions = sizeof(extensions) / sizeof(extensions[0]);
+    
+    for (int i = 1; i < num_extensions + 1; i++) {
+        // int path_len = strlen(comet_dir) + strlen(extensions[i-1]) + strlen(package_name) + 1;
+        // char* path = (char*)malloc(path_len);
+        // if (i != 0 && i != 10) {
+        // snprintf(path, path_len, "%s%s%s", comet_dir, extensions[i-1], package_name);
+        // } else {
+        // }
+        
+        char* path = NULL;
+        if (i < 4) {
+            path = (char*)malloc(strlen(comet_dir) + strlen(extensions[i-1]) + 1);
+            memcpy(path, comet_dir, strlen(comet_dir));
+            memcpy(path + strlen(comet_dir), extensions[i-1], strlen(extensions[i-1]));
+            path[strlen(extensions[i-1]) + strlen(comet_dir)] = 0;
+        } else {
+            int path_len = strlen(comet_dir) + strlen(extensions[i-1]) + strlen(package_name) + 1;
+            path = (char*)malloc(path_len);
+            snprintf(path, path_len, "%s%s%s", comet_dir, extensions[i-1], package_name);
+        }
+
+        dirs[i] = path;
+        // BYEL("file_path: %s\n", dirs[i]);
+    }
+    
+    return dirs;
+}
+
+void free_dirs(char** dirs, int sz) {
+    int i = 0;
+    while (i < sz) {
+        // printf("Freeing dirs[%d]: %p\n", i, (void*)dirs[i]);
+        if (dirs[i]) free(dirs[i]);
+        i++;
+    }
+    free(dirs);
+}
+
+int install_package(Package** packages, char** dirs, const char* package_name, int row_length);
+
+int load_comet(Package** packages, char* comet_dir, char* index_path, int row_length) {
+    int status = 0;
+    int num_packages = 0;
+    char** package_names = NULL;
+    char* package = NULL;
+    char* buffer = NULL;
+    char** dirs = NULL;
+    int i = 0;
+    int cursor = 0;
+    int last = 0;
+    size_t sz = 0;
+
+    FILE* fp = fopen("./comet.txt", "rb");
+    if (!fp) {
+        BRED("No comet.txt file found!\n");
+        status = -1;
+        goto cleanup_load;
+    }
+
+    sz = fsize(fp);
+    buffer = (char*)malloc(sizeof(char) * sz);
+    fread(buffer, 1, sz, fp);
+
+    while (i < sz) {
+        if (buffer[i] == '\n') {
+            // package = (char*)malloc(sizeof(char) * (cursor + 1));
+            package_names = (char**)realloc(package_names, sizeof(char*) * (num_packages+1));
+            package_names[num_packages] = (char*)malloc(sizeof(char) * (cursor + 1));
+            memcpy(package_names[num_packages], buffer + last, cursor);
+            package_names[num_packages][cursor] = 0;
+            GRE("Package: %s\n", package_names[num_packages]);
+            last += cursor + 1;
+            cursor = 0;
+            num_packages++;
+            i++;
+            continue;
+        }
+        cursor++;
+        i++;
+    }
+    package_names = (char**)realloc(package_names, sizeof(char*) * (num_packages+1));
+    package_names[num_packages] = (char*)malloc(sizeof(char) * (cursor + 1));
+    memcpy(package_names[num_packages], buffer + last, cursor);
+    package_names[num_packages][cursor] = 0;
+    GRE("Package: %s\n", package_names[num_packages]);
+    BBLU("Number of packages is: %i\n", num_packages);
+    num_packages++;
+
+    i = 0;
+
+    while (i < num_packages) {
+        printf("And da package: %s\n", package_names[i]);
+
+        if (package_names[i]) {
+            int dir_ct = 0;
+            dirs = load_dirs(dirs, comet_dir, package_names[i], &dir_ct);
+
+            Package* pkg = (Package*)malloc(sizeof(Package));
+            int found = 0;
+            if (scan_index(pkg, package_names[i], index_path, row_length, 0, 16, &found) < 0) {
+                BRED("Error scanning index!\n");
+            }
+
+            if (pkg) free(pkg);
+
+            BBLU("FML!\n");
+
+            if (!found) {
+                if (install_package(packages, dirs, package_names[i], row_length) < 0) {
+                    BRED("Error installing package!\n\n\n");
+                }
+            }
+
+            free_dirs(dirs, dir_ct);  // free dirs before reallocating it
+
+            BGRE("Finished Installing package %s!\n", package_names[i]);
+            FILE* index_fp = fopen(index_path, "rb");
+            if (!index_fp) { status = -1; goto cleanup_load; }
+            BBLU("Num records: %li\n\n", fsize(index_fp) / row_length);
+            fclose(index_fp);
+        }
+        i++;
+    }
+
+cleanup_load:
+    if (fp) fclose(fp);
+    if (buffer) free(buffer);
+    if (package_names) {
+        for (int i = 0; i < num_packages; i++) {
+            if (package_names[i]) free(package_names[i]);
+        }
+        free(package_names);
+    }
+    // if (*packages) {
+    //     Package* head = *packages;
+    //     while (head != NULL) {
+    //         Package* next = head->next;
+    //         if (head) free(head);
+    //         head = next;
+    //     }
+    // }
+    BGRE("Finished Installing packages!\n\n");
+    return status;
+}
+
+int write_package(Package** packages, char* package_name, char* index_path, int row_length, char* exec_dir, int num_packs, char** dirs) {
+    int status = 0;
+    int i; 
+    char* lib_dir = dirs[3];
+    Package* to_install = NULL;
+    MemMap* mmap3 = NULL;
+    char lib_read_buffer[32];
+    Package* packages_new = NULL;
+    Package* head = NULL;
+    size_t lib_path_size = 64;
+    char script[32];
+
+    char package_lib_path[strlen(lib_dir) + strlen(package_name) + 1];
+    memcpy(package_lib_path, lib_dir, strlen(lib_dir));
+    memcpy(package_lib_path + strlen(lib_dir), package_name, strlen(package_name));
+    package_lib_path[strlen(lib_dir) + strlen(package_name)] = 0;
+
+    BGRE("Package name: %s\n", package_name);
+
+    const char* lib_source_dir = dirs[9];
+    char lib_source[strlen(lib_source_dir) + 5 + 1];
+    memcpy(lib_source, lib_source_dir, strlen(lib_source_dir));
+    memcpy(lib_source + strlen(lib_source_dir), "/lib/", 5);
+    lib_source[strlen(lib_source_dir) + 5] = 0;
+
+    // BGRE("Lib source dir: %s\n", lib_source);
+
+    int has_libs = 1;
+    if (!exists(lib_source)) {
+        BRED("Lib sources not found. Potentially header only package\n");
+        has_libs = 0;
+    }
+
+    if (has_libs) {
+
+        int libct = 0;
+        char** libs = NULL;
+        if (list_files(&libs, (char*)lib_source, &libct) < 0) {
+            BRED("Failed to list directory files!\n");
+            return -1;
+        }
+
+        char** files = NULL;
+
+        i = 0;
+        int j = 0;
+        int num_libs = 0;
+        while(i < libct) {
+            // printf("Libfile: %s\n", libs[i]);
+            char* ptr = strstr(libs[i], ".so");
+            if (ptr != NULL) {
+                char* lib_name = (char*)malloc(sizeof(char) * lib_path_size);
+                if (last_of(lib_name, libs[i], '/') < 0) {
+                    BRED("Failed to find the last of us '%c'\n", '/');
+                    free(lib_name);
+                    continue;
+                }
+                BBLU("Library name: %s\n", lib_name);
+                files = (char**)realloc(files, (j + 1) * sizeof(char*));
+                files[j] = lib_name;
+                j++;
+            }
+            ptr = strstr(libs[i], ".a");
+            if (ptr != NULL) {
+                char* lib_name = (char*)malloc(sizeof(char) * lib_path_size);
+                if (last_of(lib_name, libs[i], '/') < 0) {
+                    BRED("Failed to find the last of us '%c'\n", '/');
+                    free(lib_name);
+                    continue;
+                }
+                BBLU("Library name: %s\n", lib_name);
+                files = (char**)realloc(files, (j + 1) * sizeof(char*));
+                files[j] = lib_name;
+                j++;
+            }
+            i++;
+        }
+        num_libs = j;
+        BBLU("Number of libs!: %i\n", num_libs);
+
+        // BMAG("Package lib path is: %s\n", package_lib_path);
+
+        FILE* lib_write = fopen(package_lib_path, "wb");
+
+        if (!lib_write) {
+            BRED("Failed to open package library index for write!\n");
+            return -1;
+        }
+
+        i = 0;
+        while (i < num_libs) {
+            bytes_t lib_bytes = (bytes_t)malloc(sizeof(BYTE) * lib_path_size);
+            if (pad((bytes_t)files[i], strlen((char*)files[i]), lib_path_size) < 0) {
+                BRED("Failed to pad library name!\n");
+                free(lib_bytes);
+                return -1;
+            }
+            memcpy(lib_bytes, files[i], lib_path_size);
+            fwrite(lib_bytes, 1, lib_path_size, lib_write);
+            free(files[i]);
+            free(lib_bytes);
+            i++;
+        }
+        free(files);
+
+        i = 0;
+        while (i < libct) {
+            if (libs[i]) free(libs[i]);
+            i++;
+        }
+        if (libs) free(libs);
+
+        fclose(lib_write);
+
+        // FILE* lib_read = fopen(package_lib_path, "rb");
+        // if (!lib_read) {
+        //     BRED("Failed to open package library index for write!\n");
+        //     status = -1;
+        //     goto cleanup;
+        // }
+
+        // while (fread(lib_read_buffer, 1, lib_path_size, lib_read) == lib_path_size) {
+        //     char some_str[lib_path_size];
+        //     memcpy(some_str, lib_read_buffer, lib_path_size);
+        //     // BMAG("Read lib: %s\n", some_str);
+        // }
+
+        // fclose(lib_read);
+
+    }
+
+    if (remove_dir(exec_dir) < 0) {
+        BRED("Failed to remove directory!\n");
+        status = -1;
+        goto cleanup;
+    }
+
+    BRED("Num packages in index: %i\n", num_packs);
+    // BYEL("====================================\n");
+    BYEL("Index\n");
+    BYEL("====================================\n");
+    // dump_index(*packages);
+    printf("Opt is: %s\n", package_name);
+    strncpy(script, "./bin/", 6);
+    strncpy(script + 6, package_name, strlen(package_name));
+    script[6 + strlen(package_name)] = 0;
+    printf("Script is: %s\n", script);
+    to_install = (Package*)malloc(sizeof(Package));
+    mmap3 = (MemMap*)malloc(sizeof(MemMap) * 6);
+    package_create(to_install, &packages_new, package_name, 1, script, &mmap3, 6);
+    free(mmap3);
+
+    // BYEL("====================================\n");
+    BYEL("To add\n");
+    BYEL("====================================\n");
+    // dump_index(packages_new);
+
+    BCYA("###############################\n");
+    CYA("Index alteration!\n");
+
+    alter_index(packages, &packages_new, index_path, row_length);
+
+cleanup:
+    head = packages_new;
+    while (head != NULL) {
+        Package* temp = head;
+        head = head->next;
+        if (temp) free(temp);
+    }
+    return status;
+}
+
+int uninstall_package(char** dirs, char* opt, char* index_path, int row_length) {
+    char** lib_files = NULL;
+    int status = 0;
+
+    char comet_lib_dir[] = "/usr/local/comet/lib/";
+    char build_lib_dir[] = "/usr/local/comet/.internal/lib/";
+    char include_dir[] = "/usr/local/comet/include/";
+    char source_dir[] = "/usr/local/comet/source/";
+
+    char comet_libs[strlen(comet_lib_dir) + strlen(opt) + 1];
+    memcpy(comet_libs, comet_lib_dir, strlen(comet_lib_dir));
+    memcpy(comet_libs + strlen(comet_lib_dir), opt, strlen(opt));
+    comet_libs[strlen(comet_lib_dir) + strlen(opt)] = 0;
+
+    char package_libs[strlen(build_lib_dir) + strlen(opt) + 1];
+    memcpy(package_libs, build_lib_dir, strlen(build_lib_dir));
+    memcpy(package_libs + strlen(build_lib_dir), opt, strlen(opt));
+    package_libs[strlen(build_lib_dir) + strlen(opt)] = 0;
+
+    char package_include[strlen(include_dir) + strlen(opt) + 1];
+    memcpy(package_include, include_dir, strlen(include_dir));
+    memcpy(package_include + strlen(include_dir), opt, strlen(opt));
+    package_include[strlen(include_dir) + strlen(opt)] = 0;
+
+    char package_source[strlen(source_dir) + strlen(opt) + 1 + 7];
+    memcpy(package_source, source_dir, strlen(source_dir));
+    memcpy(package_source + strlen(source_dir), opt, strlen(opt));
+    memcpy(package_source + strlen(source_dir) + strlen(opt), "-source", 7);
+    package_source[strlen(source_dir) + strlen(opt) + 7] = 0;
+
+    BMAG("Uninstall comet libs: %s\n", comet_lib_dir);
+    BMAG("Uninstall package libs: %s\n", package_libs);
+    BMAG("Uninstall package include: %s\n", package_include);
+    BMAG("Uninstall package source: %s\n", package_source);
+    BMAG("Uninstall package build: %s\n", package_libs);
+
+    size_t lib_path_size = 64;
+    int comet_lib_ct = 0;
+    char** libs = NULL;
+    if (list_files(&libs, comet_lib_dir, &comet_lib_ct) < 0) {
+        BRED("Failed to list directory files!\n");
+        return -1;
+    }
+
+    int has_libs = 1;
+    FILE* fp = fopen(package_libs, "rb");
+    if (!fp) {
+        BRED("Failed to open package libs file!\n");
+        has_libs = 0;
+    }
+
+    // create a dependency graph?
+    // will need a systematic way to handle github modules,
+    // but for now a dumb workaround
+    // c4 a sub module of rapidyaml
+    // can maybe get this information from git
+    if (strcmp(opt, "rapidyaml") == 0) {
+        char c4_path[] = "/usr/local/comet/include/c4";
+        if (remove_dir_r(c4_path) < 0) {
+            BRED("Error removing directory: %s\n", c4_path);
+        }
+    }
+
+    if (exists(package_source)) {
+        if (remove_dir_r(package_source) < 0) {
+            BRED("Error removing directory: %s\n", package_source);
+        }
+    }
+
+    if (exists(package_include)) {
+        if (remove_dir_r(package_include) < 0) {
+            BRED("Error removing directory: %s\n", package_include);
+        }
+    }
+
+    // cache before deletion?
+    // if (remove_dir_r(package_build) < 0) {
+    //     BRED("Error removing directory: %s\n", package_build);
+    // }
+
+    if (has_libs) {
+        BBLU("Por que?\n");
+        size_t lib_sz = 0;
+        bytes_t lib_index = read_bin(package_libs, &lib_sz);
+        BBLU("Debug bin size!: %li\n", lib_sz);
+        free(lib_index);
+        char buffer[32];
+        while (fread(buffer, 1, lib_path_size, fp) == lib_path_size) {
+            int i = 0;
+            printf("Buffer lib: %s... ", (char*)buffer);
+            int found = 0;
+            while (i < comet_lib_ct) {
+                // printf("Comet lib: %s\n", libs[i]);
+                char buf[32];
+                if (last_of(buf, libs[i], '/') < 0) {
+                    BRED("last of / not found\n");
+                    return -1;
+                }
+                if (strcmp(buf, buffer) == 0) {
+                    BGRE("Found\n");
+                    found = 1;
+                    if (remove(libs[i]) == -1) {
+                        BRED("Error removing file '%s'\n", libs[i]);
+                    }
+                    break;
+                }
+                i++;
+            }
+            if (!found) {
+                BRED("Not found!\n");
+            }
+        }
+    }
+
+    BYEL("Uninstalling package...\n");
+    Package* p = (Package*)malloc(sizeof(Package));
+    int found = 0;
+    if (scan_index(p, opt, index_path, row_length, 0, 16, &found) < 0) {
+        BRED("Failed to scan index!\n");
+        return -1;
+    }
+
+    if (!found) {
+        printf("Package '%s' not installed!\n", opt);
+        status = 1;
+        goto cleanup;
+    }
+
+    if (delete_index(index_path, row_length, p->rowid) < 0) {
+        BRED("Error removing package from index!\n");
+        status = -1;
+        goto cleanup;
+    }
+
+cleanup:
+    int i = 0;
+    while (i < comet_lib_ct) {
+        if (libs[i]) { free(libs[i]); }
+        i++;
+    }
+    if (p) { free(p); }
+    if (fp) { fclose(fp); }
+    if (libs) { free(libs); }
+    return status;
+}
+
+int install_package(Package** packages, char** dirs, const char* package_name, int row_length) {
+    // Pro Tip always initialize your ptrs or you might be fucked.
+
+    int status = 0;
+    char* index_path = dirs[1];
+    char* registry_dir = dirs[2];
+    char* root_dir = dirs[0];
+    char** scripts = NULL;
+    int num_scripts = 0, pstatus = 0;
+    int i = 0;
+    int match = 0;
+    size_t sz = 0;
+    bytes_t script_bin = NULL;
+    char* script_ascii = NULL;
+    char* exec_path = NULL;
+    char* temp_path = NULL;
+    char* exec_file = NULL;
+    FILE* to_exec, *input, *output;
+    int ch, last_ch;
+    char** passables = NULL;
+
+
+    BRED("Root dir is: %s (%li) (%li)\n", root_dir, strlen(root_dir), sizeof(root_dir));
+    char* exec_dir = (char*)malloc(sizeof(char) * (strlen(root_dir) + strlen(".internal/exec") + 1));
+    char* package_path = (char*)malloc(sizeof(char) * (strlen(registry_dir) + strlen(package_name) + 1));
+
+    if (list_files(&scripts, registry_dir, &num_scripts) < 0) {
+        BRED("Failed to list files for registry: %s\n", registry_dir);
+        return -1;
+    }
+
+    int pkg_clean = 0;
+    int num_packs = 0;
+    if (load_index(packages, &num_packs, index_path, row_length) < 0) {
+        BRED("Failed to load index!\n");
+        status = -1;
+        goto cleanup;
+    }
+
+    memcpy(exec_dir, dirs[0], strlen(dirs[0]));
+    memcpy(exec_dir + strlen(dirs[0]), ".internal/exec", strlen(".internal/exec"));
+    exec_dir[strlen(dirs[0]) + strlen(".internal/exec")] = 0;
+    
+    // BCYA("Available scripts:\n=====================================\n");
+    while (i < num_scripts) {
+        // CYA("Script: %s\n", scripts[i]);
+        char buf[32];
+        if (last_of(buf, scripts[i], '/') < 0) {
+            BRED("Failed to find last of '/'\n");
+            status = -1;
+            goto cleanup;
+        }
+        // CYA("Id: %s\n", buf);
+        char* aname = (char*)malloc(sizeof(char) * (strlen(buf) + 1));
+        memcpy(aname, buf, strlen(buf) + 1);
+        free(scripts[i]);
+        scripts[i] = (char*)malloc(sizeof(char) * (strlen(aname) + 1));
+        memcpy(scripts[i], aname, strlen(aname) + 1);
+        free(aname);
+        i++;
+    }
+
+    BYEL("Iterate script names\n======================================\n");
+    i = 0;
+    while (i < num_scripts) {
+        YEL("Name: %s\n", scripts[i]);
+        if (strcmp(scripts[i], package_name) == 0) {
+            match = 1;
+        }
+        i++;
+    }
+
+    // remove for uninstall debug
+    if (!match) {
+        BRED("No package found for name '%s'\n", package_name);
+        status = -1;
+        pkg_clean = 1;
+        goto cleanup;
+    }
+
+////////////////////////////////////////////////////////////////////////////////
+
+    if(exists(index_path)) {
+
+        Package* p = (Package*)malloc(sizeof(Package));
+        int found = 0;
+        if (scan_index(p, package_name, index_path, row_length, 0, 16, &found) < 0) {
+            BRED("Failed to scan index for: %s\n", scripts[i]);
+            status = -1;
+            if (p) free(p);
+            goto cleanup;
+        }
+
+        if (!found) {
+            RED("Package '%s' not found in index! Installing...\n", package_name);
+            if (p) free(p);
+        } else {
+            BGRE("Package '%s' already installed!\n", p->name);
+            if (p) free(p);
+            status = -1;
+            goto cleanup;
+        }
+
+    }
+
+    strncpy(package_path, registry_dir, strlen(registry_dir));
+    strncpy(package_path + strlen(registry_dir), package_name, strlen(package_name));
+    package_path[strlen(registry_dir) + strlen(package_name)] = 0;
+
+    BMAG("Package path: %s\n", package_path);
+
+    script_bin = read_bin(package_path, &sz);
+    if (sz < 64) {
+        BRED("File too small\n");
+        status = -1;
+        goto cleanup;
+    }
+    script_ascii = (char*)malloc((sz - 64 + 1 > 0 ? sz - 64 + 1 : 1));
+    memcpy(script_ascii, script_bin + 64, sz - 64);
+    script_ascii[sz - 64] = '\0';
+
+    // BMAG("Ascii script\n");
+    // MAG("%s\n", (char*)script_ascii);
+
+    // BBLU("Exec dir: %s\n", exec_dir);
+
+    if (create_dir(exec_dir) < 0) {
+        BRED("Failed to create exec dir for command script!\n");
+        status = -1;
+        goto cleanup;
+    }
+
+    exec_path = (char*)malloc(sizeof(char) * (strlen(exec_dir) + strlen(package_name) + 1));
+    temp_path = (char*)malloc(sizeof(char) * (strlen(exec_dir) + 4 + 1));
+    exec_file = (char*)malloc(sizeof(char) * (sz - 64));
+
+    memcpy(exec_path, exec_dir, strlen(exec_dir));
+    memcpy(exec_path + strlen(exec_dir), package_name, strlen(package_name));
+    exec_path[strlen(exec_dir) + strlen(package_name)] = 0;
+
+    memcpy(temp_path, exec_dir, strlen(exec_dir));
+    memcpy(temp_path + strlen(exec_dir), "temp", 4);
+    temp_path[strlen(exec_dir) + 4] = 0;
+
+
+    // BBLU("Exec path is: %s\n", exec_path);
+    // BBLU("Temp path is: %s\n", temp_path);
+
+    to_exec = fopen(temp_path, "wb");
+
+    if (!to_exec) {
+        BRED("Failed to open for write executable for path '%s'\n", exec_path);
+        status = -1;
+        goto cleanup;
+    }
+
+    fwrite(script_ascii, 1, sz - 64, to_exec);
+    fclose(to_exec);
+
+    input = fopen(temp_path, "rb");
+    if (!input) {
+        fprintf(stderr, "Error: failed to open input file %s\n", temp_path);
+        return 1;
+    }
+
+    output = fopen(exec_path, "wb");
+    if (!output) {
+        fprintf(stderr, "Error: failed to open output file %s\n", exec_path);
+        fclose(input);
+        return 1;
+    }
+
+    last_ch = '\n';
+    while ((ch = fgetc(input)) != EOF) {
+        if (ch == '\r') {
+            // Replace CRLF with LF
+            if (last_ch == '\n') {
+                fseek(output, -1, SEEK_CUR);
+            }
+            ch = '\n';
+        }
+        fputc(ch, output);
+        last_ch = ch;
+    }
+
+    fclose(input);
+    fclose(output);
+
+    // // this malloc with null element works.... \n
+    // // need to cleanup mem appropriately here
+    passables = (char**)malloc(sizeof(char*) * 4);
+    passables[0] = strdup("sh");
+    passables[1] = strdup("install");
+    passables[2] = strdup("placeholder");
+    passables[3] = 0;
+
+    if (chmod(exec_path, 0755) == -1) {
+        printf("Error setting executable bit on temporary file.\n");
+        return 1;
+    }
+
+    int std_fd;
+    disable_terminal(&std_fd);
+
+    if ((pstatus = pipe(exec_path, &passables)) < 0) {
+        BRED("Failed to pipe command '%s'\n", exec_path);
+        exit(EXIT_FAILURE);
+        status = -1;
+        enable_terminal(&std_fd);
+        goto cleanup;
+    }
+
+    enable_terminal(&std_fd);
+
+    BGRE("Status is: %i\n", pstatus);
+
+    if (pstatus != 0) {
+        BRED("Pipe did not run successfully!\n");
+        status = -1;
+        goto cleanup;
+    }
+
+    if (write_package(packages, (char*)package_name, index_path, row_length, exec_dir, num_packs, dirs) < 0) {
+        status = -1;
+        goto cleanup;
+    }
+
+cleanup:
+    if (exec_dir) free(exec_dir);
+
+    Package* head = *packages;
+    while (head != NULL) {
+        Package* temp = head;
+        head = head->next;
+        if (temp) free(temp);
+    }
+
+    for (int i = 0; i < num_scripts; i++) {
+        if (scripts[i]) free(scripts[i]);
+    }
+    if (scripts) { free(scripts); }
+
+    if (passables) {
+        if (passables[0]) free(passables[0]);
+        if (passables[1]) free(passables[1]);
+        if (passables[2]) free(passables[2]);
+        free(passables);
+    }
+
+    if (temp_path) free(temp_path);
+    if (exec_path) free(exec_path);
+    if (exec_file) free(exec_file);
+
+    if (script_ascii) free(script_ascii);
+    if (package_path) free(package_path);
+    if (script_bin) free(script_bin);
+
+
+    return status;
+}
+
+char** project_index(int* name_ct, const char* index_path, int row_length, int start, int end) {
+    FILE* fp = fopen(index_path, "rb");
+
+    if (!fp) {
+        BRED("Failed to open index file: %s\n", index_path);
+        return NULL;
+    }
+
+    size_t sz = fsize(fp);
+
+    int ct = 0;
+    char** names = NULL;
+    unsigned char buffer[row_length];
+    while (fread(buffer, 1, row_length, fp) == row_length) {
+        char name[end - start + 1];
+        memcpy(name, buffer + start, end - start);
+        name[end - start] = 0;
+        BBLU("Name: %s\n", name);
+        char** new_names = (char**)realloc(names, sizeof(char*) * (ct + 1));
+        names = new_names;
+        names[ct] = (char*)malloc(strlen(name) + 1);
+        memcpy(names[ct], name, strlen(name) + 1);
+        ct++;
+    }
+
+    if (fp) { fclose(fp); }
+    *name_ct = ct;
+
+    return names;
 }
 
 int main(int argc, char* argv[]) {
@@ -1012,8 +1918,9 @@ int main(int argc, char* argv[]) {
     const char* index_path = "/usr/local/comet/.internal/index";
     const char* exec_dir = "/usr/local/comet/.internal/exec/";
     const char* lib_dir = "/usr/local/comet/.internal/lib/";
-    const char* package_dir = "/usr/local/comet/.internal/package/";
-    char script_dir[] = "/usr/local/comet/.internal/package/";
+    const char* package_dir = "/usr/local/comet/.internal/registry/";
+    char script_dir[] = "/usr/local/comet/.internal/registry/";
+    char comet_dir[] = "/usr/local/comet/";
 
     int row_length = 136;
 
@@ -1033,355 +1940,120 @@ int main(int argc, char* argv[]) {
 
     if (strcmp(command, "install") == 0) {
 
-        MAG("Installing...\n");
-
-        int num_packs = 0;
-        if (load_index(&packages, &num_packs, index_path, row_length) < 0) {
-            BRED("Failed to load index!\n");
-            return -1;
-        }
-        
-        int num_scripts = 0;
-        char** scripts = list_files((char*)script_dir, &num_scripts);
-        char** names = (char**)malloc(sizeof(char*) * num_scripts);
-        int i = 0;
-        BCYA("Available scripts:\n=====================================\n");
-        while (i < num_scripts) {
-            CYA("Script: %s\n", scripts[i]);
-            char buf[32];
-            if (last_of(buf, scripts[i], '/') < 0) {
-                BRED("Failed to find last of '/'");
-                return -1;
-            }
-            BCYA("Id: %s\n", buf);
-            char* aname = (char*)malloc(sizeof(char) * 32);
-            memcpy(aname, buf, 32);
-            aname[32] = 0;
-            scripts[i] = aname;
-            i++;
-        }
-
-        BYEL("Iterate script names\n======================================\n");
-        i = 0;
-        int match = 0;
-        while (i < num_scripts) {
-            YEL("Name: %s\n", scripts[i]);
-            if (strcmp(scripts[i], opt) == 0) {
-                match = 1;
-            }
-            i++;
-        }
-
-        // remove for uninstall debug
-        if (!match) {
-            BRED("No package found for name '%s'\n", opt);
+        if (argc < 3) {
+            BRED("Invalid number of arguments for install!\n");
             return -1;
         }
 
-        if(exists(index_path)) {
+        int status = 0;
+        int file_ct = 0;
+        char** dirs = load_dirs(dirs, comet_dir, opt, &file_ct); 
 
-            Package* p = (Package*)malloc(sizeof(Package));
-            int found = 0;
-            if (scan_index(p, opt, index_path, row_length, 0, 16, &found) < 0) {
-                BRED("Failed to scan index for: %s\n", scripts[i]);
-                return 0;
-            }
-
-            if (!found) {
-                RED("Package '%s' not found in index! Installing...\n", opt);
-            } else {
-                BGRE("Package '%s' already installed!\n", p->name);
-                return 0;
-            }
-
-        }
-
-        char* package_path = (char*)malloc(sizeof(char) * (strlen(package_dir) + strlen(opt) + 1));
-
-        strncpy(package_path, package_dir, strlen(package_dir));
-        strncpy(package_path + strlen(package_dir), opt, strlen(opt));
-        package_path[strlen(package_dir) + strlen(opt)] = 0;
-
-        BMAG("Package path: %s\n", package_path);
-
-        long sz = 0;
-        bytes_t script_bin = read_bin(package_path, &sz);
-        char script_ascii[sz - 64 + 1];
-        memcpy(script_ascii, script_bin + 64, sz);
-        script_ascii[sz - 64] = 0;
-
-        BMAG("Ascii script\n");
-        MAG("%s\n", (char*)script_ascii);
-
-        if (create_dir(exec_dir) < 0) {
-            BRED("Failed to create exec dir for command script!\n");
-            free(script_bin);
-            free(package_path);
-            return -1;
-        }
-
-        char* exec_path = (char*)malloc(sizeof(char) * (strlen(exec_dir) + strlen(opt) + 1));
-        char* temp_path = (char*)malloc(sizeof(char) * (strlen(exec_dir) + 4 + 1));
-        char* exec_file = (char*)malloc(sizeof(char) * (sz - 64));
-
-        memcpy(exec_path, exec_dir, strlen(exec_dir));
-        memcpy(exec_path + strlen(exec_dir), opt, strlen(opt));
-        // memcpy(exec_path + strlen(exec_dir) + strlen(package_name), ".sh", 3);
-        exec_path[strlen(exec_dir) + strlen(opt) + 3] = 0;
-
-        memcpy(temp_path, exec_dir, strlen(exec_dir));
-        memcpy(temp_path + strlen(exec_dir), "temp", 4);
-        temp_path[strlen(exec_dir) + 4] = 0;
-
-
-        BBLU("Exec path is: %s\n", exec_path);
-        BBLU("Temp path is: %s\n", temp_path);
-
-        FILE* to_exec = fopen(temp_path, "wb");
-
-        if (!to_exec) {
-            BRED("Failed to open for write executable for path '%s'\n", exec_path);
-            return -1;
-        }
-
-        fwrite(script_ascii, 1, sz - 64, to_exec);
-        fclose(to_exec);
-
-        FILE* input = fopen(temp_path, "rb");
-        if (!input) {
-            fprintf(stderr, "Error: failed to open input file %s\n", argv[1]);
-            return 1;
-        }
-
-        FILE* output = fopen(exec_path, "wb");
-        if (!output) {
-            fprintf(stderr, "Error: failed to open output file %s\n", argv[2]);
-            fclose(input);
-            return 1;
-        }
-
-        int ch;
-        int last_ch = '\n';
-        while ((ch = fgetc(input)) != EOF) {
-            if (ch == '\r') {
-                // Replace CRLF with LF
-                if (last_ch == '\n') {
-                    fseek(output, -1, SEEK_CUR);
-                }
-                ch = '\n';
-            }
-            fputc(ch, output);
-            last_ch = ch;
-        }
-
-        fclose(input);
-        fclose(output);
-
-        // this malloc with null element works.... \n
-        // need to cleanup mem appropriately here
-        char** passables = (char**)malloc(sizeof(char*) * 4);
-        passables[0] = strdup("sh");
-        passables[1] = strdup("install");
-        passables[2] = strdup("placeholder");
-        passables[3] = 0;
-
-        if (chmod(exec_path, 0755) == -1) {
-            printf("Error setting executable bit on temporary file.\n");
-            return 1;
-        }
-
-        int status;
-        if ((status = pipe(exec_path, &passables)) < 0) {
-            BRED("Failed to pipe command '%s'\n", exec_path);
-            exit(EXIT_FAILURE);
+        if (install_package(&packages, dirs, opt, row_length) < 0) {
+            BRED("Failed to install package!\n");
             status = -1;
+            free_dirs(dirs, file_ct);
             return -1;
         }
 
-        BBLU("Status is: %i\n", status);
-
-        if (status != 0) {
-            BRED("Failure\n");
-            return -1;
-        }
-
-        char package_lib_path[strlen(lib_dir) + strlen(opt) + 1];
-        memcpy(package_lib_path, lib_dir, strlen(lib_dir));
-        memcpy(package_lib_path + strlen(lib_dir), opt, strlen(opt));
-        package_lib_path[strlen(lib_dir) + strlen(opt)] = 0;
-
-        const char* lib_source_dir = "/usr/local/comet/build/";
-        // {}/lib";
-        char lib_source[strlen(lib_source_dir) + strlen(opt) + 7];
-        memcpy(lib_source, lib_source_dir, strlen(lib_source_dir));
-        memcpy(lib_source + strlen(lib_source_dir), opt, strlen(opt));
-        size_t cursor = strlen(lib_source_dir) + strlen(opt);
-        memcpy(lib_source + cursor, "/lib", 4);
-        lib_source[cursor + 4] = 0;
-
-        BGRE("Lib source dir: %s\n", lib_source);
-        BGRE("Lib storage dir: %s\n", package_lib_path);
-
-        if (!exists(lib_source)) {
-            BRED("Lib sources not found\n");
-            return -1;
-        }
-
-        int libct = 0;
-        char** libs = list_files(lib_source, &libct);
-        char** files = NULL;
-
-        i = 0;
-        int j = 0;
-        int num_libs = 0;
-        while(i < libct) {
-            printf("Libfile: %s\n", libs[i]);
-            char* ptr = strstr(libs[i], ".so");
-            if (ptr != NULL) {
-                char* lib_name = (char*)malloc(sizeof(char) * 32);
-                if (last_of(lib_name, libs[i], '/') < 0) {
-                    BRED("Failed to find the last of us '%c'\n", '/');
-                    free(lib_name);
-                    continue;
-                }
-                BBLU("Library name: %s\n", lib_name);
-                files = (char**)realloc(files, (j + 1) * sizeof(char*));
-                files[j] = lib_name;
-                j++;
-            }
-            i++;
-        }
-        num_libs = j;
-        BBLU("Number of libs!: %i\n", num_libs);
-
-        FILE* lib_write = fopen(package_lib_path, "wb");
-
-        if (!lib_write) {
-            BRED("Failed to open package library index for write!\n");
-            return -1;
-        }
-
-        i = 0;
-        while (i < num_libs) {
-            bytes_t lib_bytes = (bytes_t)malloc(sizeof(BYTE) * 32);
-            if (pad((bytes_t)files[i], 32) < 0) {
-                BRED("Failed to pad library name!\n");
-                return -1;
-            }
-            fwrite(lib_bytes, 1, 32, lib_write);
-            i++;
-        }
-
-        fclose(lib_write);
-
-        FILE* lib_read = fopen(package_lib_path, "rb");
-        if (!lib_read) {
-            BRED("Failed to open package library index for write!\n");
-            return -1;
-        }
-
-        char lib_read_buffer[32];
-        while (fread(lib_read_buffer, 1, 32, lib_read) == 32) {
-            BMAG("Read lib: %s\n", lib_read_buffer);
-        }
-
-
-        // NEED TO cleanup lib files
-        MAG("Don't forget to cleanup lib files!\n");
-
-        exit(1);
-
-        free(passables[0]);
-        free(passables[1]);
-        free(passables[2]);
-        free(passables);
-
-        // free(temp_path);
-        // free(exec_path);
-        // free(exec_file);
-
-        // free(script_bin);
-        // free(package_path);
-
-        if (remove_dir(exec_dir) < 0) {
-            BRED("Failed to remove directory!\n");
-            return -1;
-        }
-
-        BRED("Num packages in index: %i\n", num_packs);
-        BYEL("====================================\n");
-        BYEL("               Index                \n");
-        BYEL("====================================\n");
-        dump_index(packages);
-
-        Package* packages_new = NULL;
-        char script[32];
-        printf("Opt is: %s\n", opt);
-        strncpy(script, "./bin/", 6);
-        strncpy(script + 6, opt, strlen(opt));
-        script[6 + strlen(opt)] = 0;
-        printf("Script is: %s\n", script);
-        Package* to_install = (Package*)malloc(sizeof(Package));
-        MemMap* mmap3 = (MemMap*)malloc(sizeof(MemMap) * 6);
-        package_create(to_install, &packages_new, opt, 1, script, &mmap3, 6);
-        free(mmap3);
-
-        BYEL("====================================\n");
-        BYEL("              To Add                \n");
-        BYEL("====================================\n");
-        dump_index(packages_new);
-
-        BCYA("###############################\n");
-        CYA("Index alteration!\n");
-
-        alter_index(&packages, &packages_new, index_path, row_length);
-
-    cleanup:
-        Package* head = packages;
-        while (head != NULL) {
-            Package* temp = head;
-            head = head->next;
-            free(temp);
-        }
-
-        head = packages_new;
-        while (head != NULL) {
-            Package* temp = head;
-            head = head->next;
-            free(temp);
-        }
+        free_dirs(dirs, file_ct);
+        return status;
 
     } else if (strcmp(command, "help") == 0 || strcmp(command, "-h") == 0 || strcmp(command, "--help") == 0) {
         printf("======================================================================================================\n");
         printf("                                       Comet Package Manager                                          \n");
         printf("======================================================================================================\n");
         printf("%-32s: %s\n", "install", "Install a package within the registry");   
-        printf("%-32s: %s\n", "uninstall", "Uninstall a package within the registry");   
+        printf("%-32s: %s\n", "uninstall", "Uninstall a package");   
+        printf("%-32s: %s\n", "uninstall -a", "Uninstall all packages");   
         printf("%-32s: %s\n", "list", "List all packages with detailed information");   
-        printf("%-32s: %s\n", "upload <script> <user>", "Upload a package to the registry with API token");   
+        printf("%-32s: %s\n", "upload <script> <user>", "Upload a package to the registry for a user");   
         printf("%-32s: %s\n", "show <package_name>", "Get detailed information about a package");
-        printf("%-32s: %s\n", "update <package_name> <new_script>", "Update package with a new script");
-        printf("%-32s: %s\n", "script <package_name>", "For debug purposes, get the ascii bash script");
+        // printf("%-32s: %s\n", "update <package_name> <new_script>", "Update package with a new script");
         printf("%-32s: %s\n", "load", "Reads package names from a comet.txt file to install required packages");
 
+    } else if (strcmp(command, "load") == 0) {
+        if (load_comet(&packages, comet_dir, (char*)index_path, row_length) < 0) {
+            BRED("Failed to load comet file!\n");
+            return -1;
+        }
+
+        // Package* head = packages;
+        // while (head != NULL) {
+        //     BBLU("Da fuq!\n");
+        //     Package* next = head->next;
+        //     if (head) free(head);
+        //     head = next;
+        // }
+
     } else if (strcmp(command, "uninstall") == 0) {
+        if (argc < 3) {
+            BRED("Invalid number of arguments for install!\n");
+            return -1;
+        }
+
+        int uninstall_all = 0;
+        if (strcmp(argv[2], "-a") == 0) {
+            uninstall_all = 1;
+        } else if (strcmp(argv[2], "--all") == 0) {
+            uninstall_all = 1;
+        }
+
+        if (!uninstall_all) {
+            int file_ct = 0;
+            char** dirs = load_dirs(dirs, comet_dir, opt, &file_ct); 
+
+            if (uninstall_package(dirs, opt, (char*)index_path, row_length) < 0) {
+                BRED("Failed to uninstall package!\n");
+                free_dirs(dirs, file_ct);
+                return -1;
+            }
+
+            free_dirs(dirs, file_ct);
+
+        } else {
+            char** names = NULL;
+            int name_ct = 0;
+            names = project_index(&name_ct, index_path, row_length, 0, 16);
+            int i = 0;
+            while (i < name_ct) {
+                int file_ct = 0;
+                char** dirs = load_dirs(dirs, comet_dir, names[i], &file_ct); 
+                GRE("Name: %s\n", names[i]);
+                if (uninstall_package(dirs, names[i], (char*)index_path, row_length) < 0) {
+                    BRED("Failed to uninstall package!\n");
+                }
+                free_dirs(dirs, file_ct);
+                i++;
+            }
+            BYEL("Name ct: %i\n", name_ct);
+            free_dirs(names, name_ct);          
+        }
+
+
+    } else if (strcmp(command, "remove") == 0) {
         BYEL("Uninstalling package...\n");
         Package* p = (Package*)malloc(sizeof(Package));
         int found = 0;
         if (scan_index(p, opt, index_path, row_length, 0, 16, &found) < 0) {
             BRED("Failed to scan index!\n");
+            if (p) free(p);
             return -1;
         }
 
         if (!found) {
             printf("Package '%s' not installed!\n", opt);
+            if (p) free(p);
             return 0;
         }
 
         if (delete_index(index_path, row_length, p->rowid) < 0) {
             BRED("Error removing package from index!\n");
+            if (p) free(p);
             return -1;
         }
+
+        if (p) free(p);
 
     } else if (strcmp(command, "show") == 0) {
         if (argc < 3) {
@@ -1404,6 +2076,13 @@ int main(int argc, char* argv[]) {
             head = head->next;
         }
 
+        head = packages;
+        while (head != NULL) {
+            Package* next = head->next;
+            if (head) free(head);
+            head = next;
+        }
+
     } else if (strcmp(command, "list") == 0) {
         
         int num_packages;
@@ -1418,7 +2097,15 @@ int main(int argc, char* argv[]) {
             head = head->next;
         }
 
+        head = packages;
+        while (head != NULL) {
+            Package* next = head->next;
+            if (head) free(head);
+            head = next;
+        }
+
     } else if (strcmp(command, "upload") == 0) {
+        int status;
         if (argc != 4) {
             BRED("Invalid number of arguments for command upload!\n");
             return -1;
@@ -1439,240 +2126,93 @@ int main(int argc, char* argv[]) {
             return -1;
         }
 
-        char package_name[32];
+        char* package_name = (char*) malloc(32);
         strncpy(package_name, package_ptr + 1, 32);
 
+        printf("Package dir: %s\n", package_dir);
         printf("Package name: %s\n", package_name);
 
         if (!exists(script)) {
             BRED("Invalid script provided for upload!\n");
+            free(package_name);
             return -1;
         }
 
-        long sz;
+        size_t sz = 0;
         bytes_t script_bin = read_bin(script, &sz);
-        bytes_t write_bin = (bytes_t)malloc(sizeof(BYTE) * (sz + 64));
+        if (sz == 0) {
+            BRED("Empty script provided for upload!\n");
+            free(script_bin);
+            free(package_name);
+            return -1;
+        }
+        bytes_t write_bin = (bytes_t)calloc(sz + 64, sizeof(BYTE));
         BYTE sig[] = {"howdsdfsdfsdfsdfsdfsdf"};
-        if (pad(sig, 64) < 0) {
+        if (pad(sig, strlen((char*)sig), 64) < 0) {
             BRED("Failed to pad signature!\n");
             free(write_bin);
             free(script_bin);
+            free(package_name);
             return -1;
         }
 
         memcpy(write_bin, sig, 64);
         memcpy(write_bin + 64, script_bin, sz);
 
-        char* package_path = (char*)malloc(sizeof(char) * (strlen(package_dir) + strlen(package_name) + 1));
+        char* package_path = (char*)malloc(strlen(package_dir) + strlen(package_name) + 1);
 
-        strncpy(package_path, package_dir, strlen(package_dir));
-        strncpy(package_path + strlen(package_dir), package_name, strlen(package_name));
+        memcpy(package_path, package_dir, strlen(package_dir));
+        memcpy(package_path + strlen(package_dir), package_name, strlen(package_name));
         package_path[strlen(package_dir) + strlen(package_name)] = 0;
-
-        printf("Package_path: %s\n", package_path);
 
         FILE* fp = fopen(package_path, "wb");
 
         if (!fp) {
             BRED("Failed to write to file: %s\n", package_path);
-            free(write_bin);
-            free(script_bin);
-            free(package_path);
-            fclose(fp);
+            if (package_path) free(package_path);
+            if (script_bin) free(script_bin);
+            if (write_bin) free(write_bin);
+            free(package_name);
             return -1;
         }
 
         fwrite(write_bin, 1, sz + 64, fp);
 
+    cleanup:
         fclose(fp);
-        free(script_bin);
-        free(write_bin);
-
-    } else if (strcmp(command, "script") == 0) {
-        if (argc != 4) {
-            BRED("Invalid number of arguments provided for command script!\n");
-            return -1;
-        }
-
-        char* package_name = argv[2];
-        char* script_command = argv[3];
-
-        char* package_path = (char*)malloc(strlen(package_name) + strlen(script_dir) + 1);
-
-        strncpy(package_path, script_dir, strlen(script_dir));
-        strncpy(package_path + strlen(script_dir), package_name, strlen(package_name));
-        package_path[strlen(script_dir) + strlen(package_name)] = 0;
-
-        printf("Package path: %s\n", package_path);
-
-        if (!exists(package_path)) {
-            BRED("Package does not exist in script call: %s\n", package_path);
-            free(package_path);
-            return -1;
-        }
-
-        int num_scripts = 0;
-        char** scripts = list_files(script_dir, &num_scripts);
-        char** names = (char**)malloc(sizeof(char*) * num_scripts);
-        int i = 0;
-        BCYA("Available scripts:\n=====================================\n");
-        while (i < num_scripts) {
-            CYA("Script: %s\n", scripts[i]);
-            char buf[32];
-            if (last_of(buf, scripts[i], '/') < 0) {
-                BRED("Failed to find last of '/'");
-                return -1;
-            }
-            BCYA("Id: %s\n", buf);
-            char* aname = (char*)malloc(sizeof(char) * 32);
-            memcpy(aname, buf, 32);
-            aname[32] = 0;
-            scripts[i] = aname;
-            i++;
-        }
-
-        BYEL("Iterate script names\n======================================\n");
-        i = 0;
-        while (i < num_scripts) {
-            YEL("Name: %s\n", scripts[i]);
-            Package* p = (Package*)malloc(sizeof(Package));
-            int found = 0;
-            if (scan_index(p, scripts[i], index_path, row_length, 0, 16, &found) < 0) {
-                BRED("Failed to scan index!\n");
-                free(p);
-                return -1;
-            }
-            BBLU("Need to append package to package linked list!\n");
-            if (found) {
-                BGRE("Successfully allocated package in mem!\n");
-                printf("Package Flag: %i\n", p->flag);
-            }
-            i++;
-        }
-
-        long sz = 0;
-        bytes_t script_bin = read_bin(package_path, &sz);
-        char script_ascii[sz - 64 + 1];
-        memcpy(script_ascii, script_bin + 64, sz);
-        script_ascii[sz - 64] = 0;
-
-        BMAG("Ascii script\n");
-        MAG("%s\n", (char*)script_ascii);
-
-        if (create_dir(exec_dir) < 0) {
-            BRED("Failed to create exec dir for command script!\n");
-            free(script_bin);
-            free(package_path);
-            return -1;
-        }
-
-        char* exec_path = (char*)malloc(sizeof(char) * (strlen(exec_dir) + strlen(package_name) + 1));
-        char* temp_path = (char*)malloc(sizeof(char) * (strlen(exec_dir) + 4 + 1));
-        char* exec_file = (char*)malloc(sizeof(char) * (sz - 64));
-
-        memcpy(exec_path, exec_dir, strlen(exec_dir));
-        memcpy(exec_path + strlen(exec_dir), package_name, strlen(package_name));
-        // memcpy(exec_path + strlen(exec_dir) + strlen(package_name), ".sh", 3);
-        exec_path[strlen(exec_dir) + strlen(package_name) + 3] = 0;
-
-        memcpy(temp_path, exec_dir, strlen(exec_dir));
-        memcpy(temp_path + strlen(exec_dir), "temp", 4);
-        temp_path[strlen(exec_dir) + 4] = 0;
-
-
-        BBLU("Exec path is: %s\n", exec_path);
-
-        FILE* to_exec = fopen(temp_path, "wb");
-
-        if (!to_exec) {
-            BRED("Failed to open for write executable for path '%s'\n", exec_path);
-            return -1;
-        }
-
-        fwrite(script_ascii, 1, sz - 64, to_exec);
-        fclose(to_exec);
-
-        FILE* input = fopen(temp_path, "rb");
-        if (!input) {
-            fprintf(stderr, "Error: failed to open input file %s\n", argv[1]);
-            return 1;
-        }
-
-        FILE* output = fopen(exec_path, "wb");
-        if (!output) {
-            fprintf(stderr, "Error: failed to open output file %s\n", argv[2]);
-            fclose(input);
-            return 1;
-        }
-
-        int ch;
-        int last_ch = '\n';
-        while ((ch = fgetc(input)) != EOF) {
-            if (ch == '\r') {
-                // Replace CRLF with LF
-                if (last_ch == '\n') {
-                    fseek(output, -1, SEEK_CUR);
-                }
-                ch = '\n';
-            }
-            fputc(ch, output);
-            last_ch = ch;
-        }
-
-        fclose(input);
-        fclose(output);
-
-        // this malloc with null element works.... \n
-        // need to cleanup mem appropriately here
-        char** passables = (char**)malloc(sizeof(char*) * 4);
-        passables[0] = strdup("sh");
-        passables[1] = strdup(script_command);
-        passables[2] = strdup("placeholder");
-        passables[3] = 0;
-
-        if (chmod(exec_path, 0755) == -1) {
-            printf("Error setting executable bit on temporary file.\n");
-            return 1;
-        }
-
-        char syscom[10 + strlen(exec_path)];
-        memcpy(syscom, "dos2unix ", 9);
-        memcpy(syscom + 9, exec_path, strlen(exec_path));
-        syscom[9 + strlen(exec_path)] = 0;
-
-        BYEL("Syscom: %s\n", syscom);
-
-        // system(syscom);
-
-        int status;
-        if ((status = pipe(exec_path, &passables)) < 0) {
-            BRED("Failed to pipe command '%s'\n", exec_path);
-            return -1;
-        }
-
-        BRED("Need to delete exec dir after! For security reasons.\n");
-
-        free(passables[0]);
-        free(passables[1]);
-        free(passables[2]);
-        free(passables);
-
-        free(temp_path);
-        free(exec_path);
-        free(exec_file);
-        free(script_bin);
-        free(package_path);
-
+        if (package_path) free(package_path);
+        if (script_bin) free(script_bin);
+        if (write_bin) free(write_bin);
+        if (package_name) free(package_name);
+       
     } else if (strcmp(command, "verify") == 0) {
         BMAG("Verifying package signatures...\n");
 
-    } else if (strcmp(command, "register") == 0) {
-        if (argc != 4) {
-            BRED("Invalid number of arguments provided for register!\n");
+    } else if (strcmp(command, "registry") == 0) {
+        char registry[] = "/usr/local/comet/.internal/registry/";
+        char** files = NULL;
+        int file_ct = 0;
+        if (list_files(&files, registry, &file_ct) < 0) {
+            BRED("Failed to list files for registry!\n");
             return -1;
         }
-        char* package = argv[2];
-        char* user = argv[3];
+
+        int i = 0;
+        printf("Registry\n=================================\n");
+        while (i < file_ct) {
+            if (files[i]) {
+                char* str = (char*)malloc(64);
+                if (last_of(str, files[i], '/') < 0) {
+                    BRED("Error finding file path!\n");
+                }
+                str[strlen(str)] = 0;
+                printf("\t%s\n", str);
+                free(str);
+                free(files[i]);
+            }
+            i++;
+        }
+        if (files) free(files);
 
     } else if (strcmp(command, "newuser") == 0) {
         BYEL("Creating new user...\n");
@@ -1683,6 +2223,11 @@ int main(int argc, char* argv[]) {
 
         char* newuser = argv[2];
     } else if (strcmp(command, "update_test") == 0) {
+        if (argc < 3) {
+            BRED("Invalid number of arguments for update_test\n");
+            return -1;
+        }
+
         BYEL("Update package test...\n"); 
         int num_packages = 0;
         if (load_index(&packages, &num_packages, index_path, row_length) < 0) {
@@ -1706,6 +2251,14 @@ int main(int argc, char* argv[]) {
             }
             head = head->next;
         }
+
+        head = packages;
+        while (head != NULL) {
+            Package* next = head->next;
+            free(head);
+            head = next;
+        }
+
     } else if (strcmp(command, "init") == 0) {
         // verify installation in /usr/local/comet
         if (create_dir("/usr/local/comet") < 0) {
@@ -1753,14 +2306,14 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        if (create_dir("/usr/local/comet/compress") < 0) {
-            BRED("Error initing comet dirs\n"); return -1;
-        }
+        // if (create_dir("/usr/local/comet/compress") < 0) {
+        //     BRED("Error initing comet dirs\n"); return -1;
+        // }
 
-        if (chmod("/usr/local/comet/compress", 0755) == -1) {
-            printf("Error setting executable bit on temporary file.\n");
-            return 1;
-        }
+        // if (chmod("/usr/local/comet/compress", 0755) == -1) {
+        //     printf("Error setting executable bit on temporary file.\n");
+        //     return 1;
+        // }
 
         if (create_dir("/usr/local/comet/env") < 0) {
             BRED("Error initing comet dirs\n"); return -1;
@@ -1780,6 +2333,44 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
+        if (create_dir("/usr/local/comet/.internal/lib") < 0) {
+            BRED("Error initing comet dirs\n"); return -1;
+        }
+
+        if (chmod("/usr/local/comet/.internal/lib", 0755) == -1) {
+            printf("Error setting executable bit on temporary file.\n");
+            return 1;
+        }
+
+        if (create_dir("/usr/local/comet/.internal/registry") < 0) {
+            BRED("Error initing comet dirs\n"); return -1;
+        }
+
+        if (chmod("/usr/local/comet/.internal/registry", 0755) == -1) {
+            printf("Error setting executable bit on temporary file.\n");
+            return 1;
+        }
+
+        if (create_dir("/usr/local/comet/.internal/cache") < 0) {
+            BRED("Error initing comet dirs\n"); return -1;
+        }
+
+        if (chmod("/usr/local/comet/.internal/cache", 0755) == -1) {
+            printf("Error setting executable bit on temporary file.\n");
+            return 1;
+        }
+
+        if (create_dir("/usr/local/comet/.internal/env") < 0) {
+            BRED("Error initing comet dirs\n"); return -1;
+        }
+
+        if (chmod("/usr/local/comet/.internal/env", 0755) == -1) {
+            printf("Error setting executable bit on temporary file.\n");
+            return 1;
+        }
+
+    } else {
+        BRED("Invalid command provided!\n");
     }
 
     BGRE("Gracefully terminated!\n");

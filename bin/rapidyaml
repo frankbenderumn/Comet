@@ -18,7 +18,7 @@ if [[ "$1" == "install" ]]; then
     #         make -j install
     else
         cd ${COMET}/source
-        git clone --recursive https://github.com/biojppm/rapidyaml.git
+        git clone -q --recursive https://github.com/biojppm/rapidyaml.git
         mv rapidyaml rapidyaml-source
         # mkdir -p rapidyaml
         cd rapidyaml-source
@@ -27,6 +27,11 @@ if [[ "$1" == "install" ]]; then
         cmake .. -DCMAKE_INSTALL_PREFIX=${COMET}/build/rapidyaml
         make -j
         make -j install
+        cd ${COMET}
+        cp -r ${COMET}/build/rapidyaml/include ${COMET}/include/rapidyaml
+        rm -rf ${COMET}/build/rapidyaml/lib/cmake
+        cp -r ${COMET}/build/rapidyaml/lib/* ${COMET}/lib
+        cp -r ${COMET}/include/rapidyaml/c4 ${COMET}/include
     fi
     # fi
 elif [[ "$1" == "uninstall" ]]; then

@@ -1,0 +1,121 @@
+void free_dirs(char*** dirs, int sz) {
+    int i = 0;
+    while (i < sz) {
+        free((*dirs)[i]);
+        i++;
+    }
+    free(*dirs);
+}
+
+int install_package(Package** packages, char** dirs, const char* package_name, int row_length) {
+    return 0;
+}
+
+int load_dirs(char*** dirs, char* comet_dir, const char* package_name) {
+    (*dirs)[0] = "/usr/local/comet";
+    char index_ext[] = ".internal/index";
+    (*dirs)[1] = (char*)malloc(sizeof(char*) * (strlen(comet_dir) + strlen(index_ext) + 1));
+    memcpy((*dirs)[1], comet_dir, strlen(comet_dir));
+    memcpy((*dirs)[1] + strlen(comet_dir), index_ext, strlen(index_ext));
+    (*dirs)[1][strlen(comet_dir) + strlen(index_ext)] = 0;
+    // (*dirs)[1] = index_path;
+    char registry_ext[] = ".internal/registry/";
+    char* registry_path = (char*)malloc(sizeof(char*) * (strlen(comet_dir) + strlen(registry_ext) + 1));
+    memcpy(registry_path, comet_dir, strlen(comet_dir));
+    memcpy(registry_path + strlen(comet_dir), registry_ext, strlen(registry_ext));
+    registry_path[strlen(comet_dir) + strlen(registry_ext)] = 0;
+    (*dirs)[2] = registry_path;
+    char lib_ext[] = ".internal/lib/";
+    char* index_lib_path = (char*)malloc(sizeof(char*) * (strlen(comet_dir) + strlen(lib_ext) + strlen(package_name) + 1));
+    memcpy(index_lib_path, comet_dir, strlen(comet_dir));
+    memcpy(index_lib_path + strlen(comet_dir), lib_ext, strlen(lib_ext));
+    memcpy(index_lib_path + strlen(comet_dir) + strlen(lib_ext), package_name, strlen(package_name));
+    index_lib_path[strlen(comet_dir) + strlen(lib_ext) + strlen(package_name)] = 0;
+    (*dirs)[3] = index_lib_path;
+    char source_ext[] = "source/";
+    char* source_path = (char*)malloc(sizeof(char*) * (strlen(comet_dir) + strlen(source_ext) + strlen(package_name) + 1));
+    memcpy(source_path, comet_dir, strlen(comet_dir));
+    memcpy(source_path + strlen(comet_dir), source_ext, strlen(source_ext));
+    memcpy(source_path + strlen(comet_dir) + strlen(source_ext), package_name, strlen(package_name));
+    source_path[strlen(comet_dir) + strlen(source_ext) + strlen(package_name)] = 0;
+    (*dirs)[4] = source_path;
+    char inc_ext[] = "include/";
+    char* include_path = (char*)malloc(sizeof(char*) * (strlen(comet_dir) + strlen(inc_ext) + strlen(package_name) + 1));
+    memcpy(include_path, comet_dir, strlen(comet_dir));
+    memcpy(include_path + strlen(comet_dir), inc_ext, strlen(inc_ext));
+    memcpy(include_path + strlen(comet_dir) + strlen(inc_ext), package_name, strlen(package_name));
+    include_path[strlen(comet_dir) + strlen(inc_ext) + strlen(package_name)] = 0;
+    (*dirs)[5] = include_path;
+    char l_ext[] = "lib/";
+    char* l_path = (char*)malloc(sizeof(char*) * (strlen(comet_dir) + strlen(l_ext) + strlen(package_name) + 1));
+    memcpy(l_path, comet_dir, strlen(comet_dir));
+    memcpy(l_path + strlen(comet_dir), l_ext, strlen(l_ext));
+    memcpy(l_path + strlen(comet_dir) + strlen(l_ext), package_name, strlen(package_name));
+    l_path[strlen(comet_dir) + strlen(l_ext) + strlen(package_name)] = 0;
+    (*dirs)[6] = l_path;
+    char b_ext[] = "build/";
+    char* build_path = (char*)malloc(sizeof(char*) * (strlen(comet_dir) + strlen(b_ext) + strlen(package_name) + 1));
+    memcpy(build_path, comet_dir, strlen(comet_dir));
+    memcpy(build_path + strlen(comet_dir), b_ext, strlen(b_ext));
+    memcpy(build_path + strlen(comet_dir) + strlen(b_ext), package_name, strlen(package_name));
+    build_path[strlen(comet_dir) + strlen(b_ext) + strlen(package_name)] = 0;
+    (*dirs)[7] = build_path;
+    char deps_ext[] = "deps/";
+    char* deps_path = (char*)malloc(sizeof(char*) * (strlen(comet_dir) + strlen(deps_ext) + strlen(package_name) + 1));
+    memcpy(deps_path, comet_dir, strlen(comet_dir));
+    memcpy(deps_path + strlen(comet_dir), deps_ext, strlen(deps_ext));
+    memcpy(deps_path + strlen(comet_dir) + strlen(deps_ext), package_name, strlen(package_name));
+    deps_path[strlen(comet_dir) + strlen(deps_ext) + strlen(package_name)] = 0;
+    (*dirs)[8] = deps_path;
+    char sub_ext[] = "sub/";
+    char* sub_path = (char*)malloc(sizeof(char*) * (strlen(comet_dir) + strlen(sub_ext) + strlen(package_name) + 1));
+    memcpy(sub_path, comet_dir, strlen(comet_dir));
+    memcpy(sub_path + strlen(comet_dir), sub_ext, strlen(sub_ext));
+    memcpy(sub_path + strlen(comet_dir) + strlen(sub_ext), package_name, strlen(package_name));
+    sub_path[strlen(comet_dir) + strlen(sub_ext) + strlen(package_name)] = 0;
+    (*dirs)[9] = sub_path;
+    char regp_ext[] = ".internal/registry/";
+    char* regp_path = (char*)malloc(sizeof(char*) * (strlen(comet_dir) + strlen(regp_ext) + strlen(package_name) + 1));
+    memcpy(regp_path, comet_dir, strlen(comet_dir));
+    memcpy(regp_path + strlen(comet_dir), regp_ext, strlen(regp_ext));
+    memcpy(regp_path + strlen(comet_dir) + strlen(regp_ext), package_name, strlen(package_name));
+    regp_path[strlen(comet_dir) + strlen(regp_ext) + strlen(package_name)] = 0;
+    (*dirs)[10] = regp_path;
+    BYEL("A: %s\n", (*dirs)[0]);
+    BYEL("A: %s\n", (*dirs)[1]);
+    BYEL("A: %s\n", (*dirs)[2]);
+    BYEL("A: %s\n", (*dirs)[3]);
+    BYEL("A: %s\n", (*dirs)[4]);
+    BYEL("A: %s\n", (*dirs)[5]);
+    BYEL("A: %s\n", (*dirs)[6]);
+    BYEL("A: %s\n", (*dirs)[7]);
+    BYEL("A: %s\n", (*dirs)[8]);
+    BYEL("A: %s\n", (*dirs)[9]);
+    BYEL("A: %s\n", (*dirs)[10]);
+    return 0;
+}
+
+int main(int argc, char* argv[]) {
+    char* comet_dir = "/usr/local/comet";
+    char* opt = "veritas";
+    int row_length = 32;
+    Package* packages = 0;
+    char** dirs = (char**)malloc(sizeof(char*) * 11);
+    int status = 0;
+    
+    if (load_dirs(&dirs, comet_dir, opt) < 0) {
+        BRED("Failed to load dir names!\n");
+        free_dirs(&dirs, 11);
+        return -1;
+    }
+
+    if (install_package(&packages, dirs, opt, row_length) < 0) {
+        BRED("Failed to install package!\n");
+        status = -1;
+        free_dirs(&dirs, 11);
+        return -1;
+    }
+
+    free_dirs(&dirs, 11);
+    return 0;
+}

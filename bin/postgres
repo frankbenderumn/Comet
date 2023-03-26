@@ -1,0 +1,135 @@
+#!/bin/bash
+
+ROOTDIR=`git rev-parse --show-toplevel`
+source ${ROOTDIR}/config/comet
+source ${ROOTDIR}/config/psql
+# source ${ROOTDIR}/config/settings
+FILE=${COMET}/source/postgresql-$PSQL_VERSION.tar.gz
+apt-get install libreadline-dev
+
+installPsql () {
+    mkdir -p ${COMET}/.internal/sub
+    cd ${COMET}/source
+    # LOC=$1
+    # if [ -z "$1" ]
+    # then
+    #     LOC=postgres
+    # fi
+    # if [[ -d "${COMET}/build/psql" ]]; then
+    #     echo -e "\033[1;32mPostgres already installed.\033[0m"
+    # else
+    mkdir -p ${COMET}/build/postgres
+    cd postgres-source
+    ./configure --prefix=${COMET}/build/postgres --enable-shared
+    make -j`nproc`
+    sudo make install
+    # ${COMET}/build/postgres/bin/createuser -s celerity
+    cd ${COMET}/source
+    rm -f postgresql-*.tar.gz
+    cp -r ${COMET}/build/postgres/lib/* ${COMET}/lib
+    cp -r ${COMET}/build/postgres/include ${COMET}/include/postgres
+    rm -rf ${COMET}/build/lib/pkgconfig
+    mkdir -p ${COMET}/db/postgres
+    chown fbender ${COMET}/db/postgres
+    export PSQL=${COMET}/build/postgres/bin
+    ${PSQL}/initdb ${COMET}/db/postgres
+    ${PSQL}/pg_ctl -D ${COMET}/db/postgres -l logfile start
+    ${PSQL}/createdb demodb
+    cd /etc/ld.so.conf.d
+    FILE=libpq.conf
+    touch $FILE
+    echo "${COMET}/lib" >> $FILE
+    ldconfig
+    # if [[ "$2" == "default" ]]; then
+    #     ${ROOTDIR}/bin/psql/driver install
+    # else
+    #     # check for drivers here
+    #     echo -e "\033[1;31mPostgres drivers not found.\033[0m"
+    #     echo -e "\033[1;31mWould you like to install the psql driver?\033[0m"
+    #     read -p '[Y/N]: ' doInstall
+    #     if [ "${doInstall}" == "Y" ] || [ "${doInstall}" == "y" ]; then
+    #         cd ${COMET}/source
+    #         git clone https://github.com/jtv/libpqxx.git
+    #         mv libpqxx pqxx-source
+    #         cd pqxx-source
+    #         git checkout 6.4
+    #         PSQL_DIR=${COMET}/build/postgres
+    #         mkdir -p ${COMET}/build/pqxx
+    #         ./configure --with-postgres-lib=$PSQL_DIR/lib --with-postgres-include=$PSQL_DIR/include \
+    #         PG_CONFIG=${COMET}/build/postgres/bin/pg_config --prefix=${COMET}/build/pqxx --enable-shared \
+    #         --disable-documentation --disable-static
+    #         # ./configure --with-postgres-lib=$PSQL_DIR --with-postgres-include=$PSQL_DIR
+    #         make -j`nproc`
+    #         make install -j`nproc`
+    #     else
+    #         echo "Skipping postgres drivers. Use celerity psql:driver install to install later."
+    #     fi
+    # fi
+    # fi
+}
+
+extractPsql () {
+    cd ${COMET}/source
+    echo "\033[1;33mExtracting postgresql ${PSQL_VERSION}...\033[0m"  
+    TAR=${COMET}/source/postgresql-$PSQL_VERSION.tar.gz
+    tar -xf $TAR
+    mv postgresql-$PSQL_VERSION postgres-source
+    installPsql
+}
+
+default () {
+    echo -e "\033[1;33mInstalling Postgresql version ${PSQL_VERSION}...\033[0m"
+    cd ${COMET}/source
+    wget "https://ftp.postgresql.org/pub/source/v${PSQL_VERSION}/postgresql-${PSQL_VERSION}.tar.gz"
+    tarFile=${COMET}/source/postgresql-$PSQL_VERSION.tar.gz
+    if test -f "$tarFile"; then
+        echo -e "\033[1;32mPostgresql tar downloaded.\033[0m"
+        extractPsql
+    else 
+        echo -e "\033[1;31mFailed to download postgresql tar version ${PSQL_VERSION}\033[0m"
+    fi
+}
+
+if [[ -d "${COMET}/source/postgres-source" ]]; then
+    echo -e "\033[1;32mPostgres already installed.\033[0m"
+else
+    if test -f "$FILE"; then
+        echo -e "\033[1;33mPostgresql tar found. Version ${PSQL_VERSION} being installed.\033[0m"
+        if [ -d "${COMET}/postgres-source" ]; then
+            echo -e "\033[1;32mpostgres tar already downloaded and unzipped\033[0m"
+            installPsql
+        else 
+            extractPsql
+        fi 
+    else 
+        if [ "$1" == "default" ]; then
+            default
+        else
+            echo -e "\033[1;31mPostgresql not found.\033[0m"
+            echo -e "Would you like to install?"
+            read -p '[Y/N]: ' doInstall
+            if [ "${doInstall}" == "Y" ] || [ "${doInstall}" == "y" ]; then
+                echo -e "\033[1;33mChoose a version.\033[0m"
+                echo "Press Enter for default. Default is 15.2."
+                read -p "Version: " doVersion
+                if [ "$doVersion" == "" ]; then 
+                    default
+                else
+                    echo -e "\033[1;33mInstalling version ${doVersion}...\033[0m"
+                    cd ${COMET}/source
+                    wget "https://ftp.postgresql.org/pub/source/v${doVersion}/postgresql-${doVersion}.tar.gz"
+                    tarFile=${COMET}/source/postgresql-$doVersion.tar.gz
+                    if test -f "$tarFile"; then
+                        echo -e "\033[1;32mPostgresql tar downloaded.\033[0m"
+                        PSQL_VERSION=$doVersion
+                        extractPsql
+                    else 
+                        echo -e "\033[1;31mFailed to download postgresql tar version ${doVersion}\033[0m"
+                    fi
+                fi
+            else
+                echo -e "\033[1;32mTerminating postgresql install\033[0m"
+            fi
+        fi
+    fi
+fi

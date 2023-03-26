@@ -7,7 +7,7 @@ source ${ROOTDIR}/config/comet
 if [[ "$1" == "install" ]]; then
     echo "${TOKEN}"
     cd ${COMET}/source
-    git clone https://frankbenderumn:${TOKEN}@github.com/frankbenderumn/prizm-cxx.git
+    git clone -q https://frankbenderumn:${TOKEN}@github.com/frankbenderumn/prizm-cxx.git
     mv prizm-cxx prizm-source
 else
     echo -e "\033[1;31mInvalid argument for package prizm\033[0m"

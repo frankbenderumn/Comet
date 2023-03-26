@@ -1632,7 +1632,7 @@ int install_package(Package** packages, char** dirs, const char* package_name, i
 
 
     BRED("Root dir is: %s (%li) (%li)\n", root_dir, strlen(root_dir), sizeof(root_dir));
-    char* exec_dir = (char*)malloc(sizeof(char) * (strlen(root_dir) + strlen(".internal/exec") + 1));
+    char* exec_dir = (char*)malloc(sizeof(char) * (strlen(root_dir) + strlen(".internal/exec/") + 1));
     char* package_path = (char*)malloc(sizeof(char) * (strlen(registry_dir) + strlen(package_name) + 1));
 
     if (list_files(&scripts, registry_dir, &num_scripts) < 0) {
@@ -1649,8 +1649,8 @@ int install_package(Package** packages, char** dirs, const char* package_name, i
     }
 
     memcpy(exec_dir, dirs[0], strlen(dirs[0]));
-    memcpy(exec_dir + strlen(dirs[0]), ".internal/exec", strlen(".internal/exec"));
-    exec_dir[strlen(dirs[0]) + strlen(".internal/exec")] = 0;
+    memcpy(exec_dir + strlen(dirs[0]), ".internal/exec/", strlen(".internal/exec/"));
+    exec_dir[strlen(dirs[0]) + strlen(".internal/exec/")] = 0;
     
     // BCYA("Available scripts:\n=====================================\n");
     while (i < num_scripts) {

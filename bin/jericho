@@ -5,8 +5,17 @@ source ${ROOTDIR}/config/comet
 if [[ "$1" == "install" ]]; then
     echo "${TOKEN}"
     cd ${COMET}/source
-    git clone https://frankbenderumn:${TOKEN}@github.com/frankbenderumn/jericho-cxx.git
-    mv jericho-cxx jericho-source
+    git clone --depth 1 https://frankbenderumn:${TOKEN}@github.com/frankbenderumn/jericho.git
+    mv jericho jericho-source
+    cd jericho-source
+    # cd ..
+    # mv jericho jericho-source
+    # cd jericho-source
+    mkdir -p cmake-build
+    cd cmake-build
+    cmake -DCMAKE_INSTALL_PREFIX=${COMET}/build/jericho ..
+    make -j
+    make -j install
 else
     echo -e "\033[1;31mInvalid argument for package jericho\033[0m"
 fi

@@ -52,8 +52,8 @@ elif [[ "$1" == "install" ]]; then
         echo -e "I WANT TO CRY\n"
         echo `pwd`
         cd ../../..
-        sudo cp -r ./build/pugixml/include ./include/pugixml
-        sudo cp -r ./build/pugixml/lib/* ./lib
+        sudo cp -r ${COMET}/build/pugixml/include ${COMET}/include/pugixml
+        sudo cp -r ${COMET}/build/pugixml/lib/* ${COMET}/lib
         cd ${COMET}/lib
         sudo rm -rf cmake
         sudo rm -rf pkgconfig

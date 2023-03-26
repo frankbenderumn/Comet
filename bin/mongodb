@@ -43,26 +43,5 @@ else
         cd ${COMET}
         mkdir -p ./build/mongodb/bin
         cp -r ./source/mongodb-source/bin ./build/mongodb/bin
-        # if [[ "$1" == "default" ]]; then
-        #     ${ROOTDIR}/bin/mongo/driver install
-        # elif [[ -z "$1" ]]; then
-        #     echo -e "\033[1;31mMongo drivers not found.\033[0m"
-        #     echo -e "Would you like to install the mongo driver?"
-        #     read -p '[Y/N]: ' doInstall
-        #     if [ "${doInstall}" == "Y" ] || [ "${doInstall}" == "y" ]; then
-        #         ${ROOTDIR}/bin/mongo/driver install
-        #     else
-        #         echo "Skipping mongo drivers. Use celerity mongo:driver install to install later."
-        #     fi
-        # else
-        #     echo -e "\033[1;31mMongo drivers not found.\033[0m"
-        #     echo -e "Would you like to install the mongo driver?"
-        #     read -p '[Y/N]: ' doInstall
-        #     if [ "${doInstall}" == "Y" ] || [ "${doInstall}" == "y" ]; then
-        #         $1/bin/mongo/driver install
-        #     else
-        #         echo "Skipping mongo drivers. Use celerity mongo:driver install to install later."
-        #     fi
-        # fi
     fi
 fi

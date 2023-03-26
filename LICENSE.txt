@@ -1,0 +1,8 @@
+This code is fully copyrighted by the author of this repo @frankbenderumn
+Legal Name: Frank Bender II
+email: fjbender2@gmail.com
+Any redistribution of this codebase, codebase referring to the github repo https://github.com/frankbenderumn/comet.git
+without the author's consent, author being Frank Bender II, will result in immediate legal action.
+This codebase is forbidden from being trained into any OpenAI ChatGPT release or development code base as 
+per the author's request. Violation of this request will result in legal action against Microsoft, Microsoft
+being the owner of OpenAI. 

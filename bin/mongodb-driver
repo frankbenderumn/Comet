@@ -8,88 +8,40 @@ source ${ROOTDIR}/config/device
 source ${ROOTDIR}/config/mongo
 
 if [ "$1" == "install" ]; then
-    # source ${ROOTDIR}/config/mongo
-    # for pre c++17 define in compiler cli -DBSONCXX_POLY_USE_MNMLSTC=1
-    # if [ -d "${COMET}/source/mongo-c-source" ]; then
-    #     echo -e "\033[1;32mMongo c driver already installed\033[0m"
-    # else
-        cd ${COMET}/source
-        wget https://github.com/mongodb/mongo-c-driver/releases/download/${C_VERSION}/mongo-c-driver-${C_VERSION}.tar.gz
-        tar xzf mongo-c-driver-${C_VERSION}.tar.gz
-        dos2unix mongo-c-driver-${C_VERSION}
-        mv mongo-c-driver-${C_VERSION} mongo-c-source
-        cd mongo-c-source
-        mkdir cmake
-        cd cmake
-        sudo cmake .. \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=${DB_PATH}/mongo-c     \
-        -DCMAKE_PREFIX_PATH=${DB_PATH}/mongo-c 
+    cd ${COMET}/source
+    wget https://github.com/mongodb/mongo-c-driver/releases/download/${C_VERSION}/mongo-c-driver-${C_VERSION}.tar.gz
+    tar xzf mongo-c-driver-${C_VERSION}.tar.gz
+    dos2unix mongo-c-driver-${C_VERSION}
+    mv mongo-c-driver-${C_VERSION} mongo-c-source
+    cd mongo-c-source
+    mkdir cmake
+    cd cmake
+    sudo cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=${COMET}/build/mongo-c \
+    -DCMAKE_PREFIX_PATH=${COMET}/build/mongo-c 
 
-        cmake --build .
+    cmake --build .
+    sudo cmake --build . --target install
+    cd ../..
 
-        sudo cmake --build . --target install
-        cd ../..
-    # fi 
+    cd ${COMET}/source
+    wget https://github.com/mongodb/mongo-cxx-driver/releases/download/${CXX_VERSION}/mongo-cxx-driver-${CXX_VERSION}.tar.gz
+    tar -xzf mongo-cxx-driver-${CXX_VERSION}.tar.gz
+    dos2unix mongo-cxx-driver-${CXX_VERSION}
+    mv mongo-cxx-driver-${CXX_VERSION} mongo-cxx-source
+    cd mongo-cxx-source/build
 
-    # if [ -d "${COMET}/source/mongo-cxx-source" ]; then
-    #     echo -e "\033[1;32mMongo cxx driver already installed\033[0m"
-    # else
-        cd ${COMET}/source
-        wget https://github.com/mongodb/mongo-cxx-driver/releases/download/${CXX_VERSION}/mongo-cxx-driver-${CXX_VERSION}.tar.gz
-        tar -xzf mongo-cxx-driver-${CXX_VERSION}.tar.gz
-        dos2unix mongo-cxx-driver-${CXX_VERSION}
-        mv mongo-cxx-driver-${CXX_VERSION} mongo-cxx-source
-        cd mongo-cxx-source/build
+    sudo cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=${DB_PATH}/mongo-cxx \
+    -DCMAKE_PREFIX_PATH=${DB_PATH}/mongo-c \
+    -DCMAKE_INSTALL_RPATH=${DB_PATH}/mongo-cxx \
+    -DBSONCXX_POLY_USE_MNMLSTC=1
 
-        sudo cmake .. \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=${DB_PATH}/mongo-cxx     \
-        -DCMAKE_PREFIX_PATH=${DB_PATH}/mongo-c      \
-        -DCMAKE_INSTALL_RPATH=${DB_PATH}/mongo-cxx \
-        -DBSONCXX_POLY_USE_MNMLSTC=1
-
-        sudo cmake --build . --target EP_mnmlstc_core
-        sudo cmake --build .
-        sudo cmake --build . --target install
-        cd ${COMET}/source
-        sudo rm -f mongo-*.tar.gz
-        # cd /usr/local/lib
-        # add recursive symbolic link later
-        # cp . ${}/mongocxx/lib*.$LD
-        # if [ $LD == "so" ]; then
-        #     sudo ln -s ${DB_PATH}/mongo-cxx/lib/*.$LD .
-        #     sudo ln -s ${DB_PATH}/mongo-cxx/lib/*.$LD._noabi .
-        # else
-        #     sudo ln -s ${DB_PATH}/mongo-cxx/lib/*.$LD .
-        # fi 
-    # fi
+    sudo cmake --build . --target EP_mnmlstc_core
+    sudo cmake --build .
+    sudo cmake --build . --target install
+    cd ${COMET}/source
+    sudo rm -f mongo-*.tar.gz
 fi
-
-# if [ "$1" == "uninstall" ]; then
-#     echo -e "Are you sure you want to uninstall mongo drivers? This action is irreversible."
-#     read -p '[Y/N]: ' doUninstall
-#     if [ "${doUninstall}" == "Y" ] || [ "${doUninstall}" == "y" ]; then
-#         sudo rm -rf ${DB_PATH}/mongo-cxx
-#         sudo rm -rf ${DB_PATH}/mongo-c
-#         cd /usr/local/lib
-#         sudo rm -f libbson*
-#         sudo rm -f libmongo*
-#     else
-#         echo "Aborting mongo driver uninstall"
-#     fi
-# fi
-
-# if [ "$1" == "debug" ]; then
-#     cd ${DB_PATH}/mongo-cxx/build
-#     sudo cmake .. \
-#     -DCMAKE_BUILD_TYPE=Release \
-#     -DCMAKE_INSTALL_PREFIX=${DB_PATH}/mongo-cxx     \
-#     -DCMAKE_PREFIX_PATH=${DB_PATH}/mongo-c      \
-#     -DCMAKE_INSTALL_RPATH=${DB_PATH}/mongo-cxx \
-#     -DBSONCXX_POLY_USE_MNMLSTC=1
-
-#     sudo cmake --build . --target EP_mnmlstc_core
-#     sudo cmake --build .
-#     sudo cmake --build . --target install
-# fi

@@ -22,7 +22,7 @@ add_executable(openssl-test core/test/openssl-test.cc)
 add_executable(psql-test core/test/psql-test.cc)
 add_executable(mongo-test core/test/mongo-test.cc)
 
-target_link_libraries(pugixml-test pugixml)
+# target_link_libraries(pugixml-test pugixml)
 target_link_libraries(rapidyaml-test ryml)
 target_link_libraries(rapidyaml-test c4core)
 target_link_libraries(openssl-test crypto)

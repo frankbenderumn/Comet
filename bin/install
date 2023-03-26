@@ -3,7 +3,7 @@
 # needs to be run in sudo
 
 # rm for testing purposes
-rm -rf /usr/local/comet
+# rm -rf /usr/local/comet
 
 ROOTDIR=`git rev-parse --show-toplevel`
 source ${ROOTDIR}/config/comet

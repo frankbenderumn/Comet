@@ -320,7 +320,7 @@ int pad(bytes_t bytes, size_t bytes_len, size_t width) {
         return 0;
     }
     
-    bytes_t padded_bytes = (bytes_t) calloc(width, sizeof(BYTE));
+    bytes_t padded_bytes = (bytes_t) malloc(width * sizeof(BYTE));
     if (padded_bytes == NULL) {
         // Failed to allocate memory
         return -1;
@@ -2105,7 +2105,8 @@ int main(int argc, char* argv[]) {
         }
 
     } else if (strcmp(command, "upload") == 0) {
-        int status;
+        char* package_ptr = NULL;
+
         if (argc != 4) {
             BRED("Invalid number of arguments for command upload!\n");
             return -1;
@@ -2113,8 +2114,6 @@ int main(int argc, char* argv[]) {
 
         char* script = argv[2];
         char* signature = argv[3];
-
-        char* package_ptr = NULL;
 
         printf("Script path: %s\n", script);
         printf("Signature: %s\n", signature);
@@ -2126,8 +2125,15 @@ int main(int argc, char* argv[]) {
             return -1;
         }
 
-        char* package_name = (char*) malloc(32);
-        strncpy(package_name, package_ptr + 1, 32);
+        size_t package_len = strlen(package_ptr + 1);
+        char* package_name = (char*)malloc(package_len + 1);
+        if (package_name == NULL) {
+            BRED("Failed to allocate memory for package name!\n");
+            return -1;
+        }
+
+        strncpy(package_name, package_ptr + 1, package_len);
+        package_name[package_len] = 0;
 
         printf("Package dir: %s\n", package_dir);
         printf("Package name: %s\n", package_name);
@@ -2142,45 +2148,48 @@ int main(int argc, char* argv[]) {
         bytes_t script_bin = read_bin(script, &sz);
         if (sz == 0) {
             BRED("Empty script provided for upload!\n");
-            free(script_bin);
+            // free(script_bin);
             free(package_name);
             return -1;
         }
         bytes_t write_bin = (bytes_t)calloc(sz + 64, sizeof(BYTE));
-        BYTE sig[] = {"howdsdfsdfsdfsdfsdfsdf"};
-        if (pad(sig, strlen((char*)sig), 64) < 0) {
-            BRED("Failed to pad signature!\n");
-            free(write_bin);
-            free(script_bin);
-            free(package_name);
-            return -1;
-        }
+        bytes_t sig = (bytes_t)malloc(sizeof(BYTE) * 64);
+        char tsig[] = "wedfsdfsdfsdfkjsdklfhskdjhfsjkdf";
+        memcpy(sig, tsig, strlen(tsig));
+        memset(sig + strlen(tsig), 0x00, 64 - strlen(tsig));
 
         memcpy(write_bin, sig, 64);
         memcpy(write_bin + 64, script_bin, sz);
 
-        char* package_path = (char*)malloc(strlen(package_dir) + strlen(package_name) + 1);
+        size_t package_path_len = strlen(package_dir) + package_len + 1;
+        char* package_path = (char*)malloc(package_path_len);
+        if (package_path == NULL) {
+            BRED("Failed to allocate memory for package path!\n");
+            free(package_name);
+            free(script_bin);
+            free(write_bin);
+            return -1;
+        }
 
         memcpy(package_path, package_dir, strlen(package_dir));
-        memcpy(package_path + strlen(package_dir), package_name, strlen(package_name));
-        package_path[strlen(package_dir) + strlen(package_name)] = 0;
+        memcpy(package_path + strlen(package_dir), package_name, package_len);
+        package_path[package_path_len - 1] = 0;
 
         FILE* fp = fopen(package_path, "wb");
-
         if (!fp) {
             BRED("Failed to write to file: %s\n", package_path);
-            if (package_path) free(package_path);
-            if (script_bin) free(script_bin);
-            if (write_bin) free(write_bin);
+            free(package_path);
+            free(script_bin);
+            free(write_bin);
             free(package_name);
             return -1;
         }
 
         fwrite(write_bin, 1, sz + 64, fp);
-
-    cleanup:
         fclose(fp);
+
         if (package_path) free(package_path);
+        if (sig) free(sig);
         if (script_bin) free(script_bin);
         if (write_bin) free(write_bin);
         if (package_name) free(package_name);

@@ -405,8 +405,8 @@ int package_create(Package* package, Package** packages, const char* name, int v
     strncpy(package_path + strlen(package_dir), name, strlen(name));
     package_path[strlen(package_dir) + strlen(name)] = 0;
 
-    printf("Package name: %s\n", package_path);
-    BMAG("MemMap Size is: %li\n", sizeof(mmap)/sizeof(mmap[0]));
+    printf("Creating package with name: %s\n", package_path);
+    // BMAG("MemMap Size is: %li\n", sizeof(mmap)/sizeof(mmap[0]));
 
     // default values
     strncpy(package->name, name, 16);
@@ -1134,15 +1134,16 @@ char** load_dirs(char** dirs, char* comet_dir, const char* package_name, int* fi
     const char* extensions[] = {
         ".internal/index", 
         ".internal/registry/", 
-        ".internal/lib/", 
+        "lib/", 
         ".internal/registry/", 
         ".internal/lib/", 
         "source/", 
         "include/", 
-        "lib/", 
+        ".internal/lib/", 
         "build/", 
         "deps/", 
-        "sub/"
+        // "sub/",
+        "bin/"
     };
 
     const int num_extensions = sizeof(extensions) / sizeof(extensions[0]);
@@ -1162,13 +1163,19 @@ char** load_dirs(char** dirs, char* comet_dir, const char* package_name, int* fi
             memcpy(path + strlen(comet_dir), extensions[i-1], strlen(extensions[i-1]));
             path[strlen(extensions[i-1]) + strlen(comet_dir)] = 0;
         } else {
-            int path_len = strlen(comet_dir) + strlen(extensions[i-1]) + strlen(package_name) + 1;
-            path = (char*)malloc(path_len);
-            snprintf(path, path_len, "%s%s%s", comet_dir, extensions[i-1], package_name);
+            if (strcmp(extensions[i-1], "source/") == 0) {
+                int path_len = strlen(comet_dir) + strlen(extensions[i-1]) + strlen(package_name) + strlen("-source") + 1;
+                path = (char*)malloc(path_len);
+                snprintf(path, path_len, "%s%s%s%s", comet_dir, extensions[i-1], package_name, "-source");
+            } else {
+                int path_len = strlen(comet_dir) + strlen(extensions[i-1]) + strlen(package_name) + 1;
+                path = (char*)malloc(path_len);
+                snprintf(path, path_len, "%s%s%s", comet_dir, extensions[i-1], package_name);
+            }
         }
 
         dirs[i] = path;
-        // BYEL("file_path: %s\n", dirs[i]);
+        BYEL("[%i] file_path: %s\n", i, dirs[i]);
     }
     
     return dirs;
@@ -1294,7 +1301,7 @@ cleanup_load:
 int write_package(Package** packages, char* package_name, char* index_path, int row_length, char* exec_dir, int num_packs, char** dirs) {
     int status = 0;
     int i; 
-    char* lib_dir = dirs[3];
+    char* lib_dir = dirs[8];
     Package* to_install = NULL;
     MemMap* mmap3 = NULL;
     char lib_read_buffer[32];
@@ -1303,10 +1310,9 @@ int write_package(Package** packages, char* package_name, char* index_path, int 
     size_t lib_path_size = 64;
     char script[32];
 
-    char package_lib_path[strlen(lib_dir) + strlen(package_name) + 1];
+    char package_lib_path[strlen(lib_dir) + 1];
     memcpy(package_lib_path, lib_dir, strlen(lib_dir));
-    memcpy(package_lib_path + strlen(lib_dir), package_name, strlen(package_name));
-    package_lib_path[strlen(lib_dir) + strlen(package_name)] = 0;
+    package_lib_path[strlen(lib_dir)] = 0;
 
     BGRE("Package name: %s\n", package_name);
 
@@ -1316,7 +1322,8 @@ int write_package(Package** packages, char* package_name, char* index_path, int 
     memcpy(lib_source + strlen(lib_source_dir), "/lib/", 5);
     lib_source[strlen(lib_source_dir) + 5] = 0;
 
-    // BGRE("Lib source dir: %s\n", lib_source);
+    BMAG("Build lib source dir: %s\n", lib_source);
+    BMAG("Internal lib source dir: %s\n", lib_dir);
 
     int has_libs = 1;
     if (!exists(lib_source)) {
@@ -1510,7 +1517,7 @@ int uninstall_package(char** dirs, char* opt, char* index_path, int row_length) 
     int has_libs = 1;
     FILE* fp = fopen(package_libs, "rb");
     if (!fp) {
-        BRED("Failed to open package libs file!\n");
+        BRED("Failed to open package libs file '%s'!\n", package_libs);
         has_libs = 0;
     }
 
@@ -1535,6 +1542,15 @@ int uninstall_package(char** dirs, char* opt, char* index_path, int row_length) 
     if (exists(package_include)) {
         if (remove_dir_r(package_include) < 0) {
             BRED("Error removing directory: %s\n", package_include);
+        }
+    }
+
+    if (exists(package_libs)) {
+        int status = remove(package_libs);
+        if (status == 0) {
+            printf("File '%s' removed successfully.\n", package_libs);
+        } else {
+            printf("Error removing file '%s'.\n", package_libs);
         }
     }
 
@@ -1901,6 +1917,43 @@ char** project_index(int* name_ct, const char* index_path, int row_length, int s
     return names;
 }
 
+int path_type(const char* path) {
+    struct stat path_stat;
+    
+    if (stat(path, &path_stat) == 0) {
+        if (S_ISREG(path_stat.st_mode)) {
+            printf("%s is a regular file.\n", path);
+            return 0;
+        } else if (S_ISDIR(path_stat.st_mode)) {
+            printf("%s is a directory.\n", path);
+            return 1;
+        } else {
+            printf("%s is neither a regular file nor a directory.\n", path);
+            return 2;
+        }
+    } else {
+        printf("Error: Unable to determine the type of %s.\n", path);
+        return -1;
+    }
+    return -1;
+}
+
+int fremove(const char* path) {
+    int status = remove(path);
+    if (status == 0) {
+        printf("File removed '%s' successfully.\n", path);
+        return 0;
+    } else {
+        printf("Error removing file '%s'.\n", path);
+        return -1;
+    }
+    return -1;
+}
+
+int has_deps(const char* path) {
+    return 0;
+}
+
 int main(int argc, char* argv[]) {
     BYEL("Running comet...\n");
 
@@ -1967,7 +2020,7 @@ int main(int argc, char* argv[]) {
         printf("%-32s: %s\n", "uninstall", "Uninstall a package");   
         printf("%-32s: %s\n", "uninstall -a", "Uninstall all packages");   
         printf("%-32s: %s\n", "list", "List all packages with detailed information");   
-        printf("%-32s: %s\n", "upload <script> <user>", "Upload a package to the registry for a user");   
+        printf("%-32s: %s\n", "upload <script> <deps> <user>", "Upload a package to the registry with given dependencies for a user");   
         printf("%-32s: %s\n", "show <package_name>", "Get detailed information about a package");
         // printf("%-32s: %s\n", "update <package_name> <new_script>", "Update package with a new script");
         printf("%-32s: %s\n", "load", "Reads package names from a comet.txt file to install required packages");
@@ -2223,6 +2276,84 @@ int main(int argc, char* argv[]) {
         }
         if (files) free(files);
 
+    } else if (strcmp(command, "purge") == 0) {
+        if (argc < 3) {
+            BRED("Invalid number of arguments provided!\n");
+            return -1;
+        }
+
+        int file_ct = 0;
+        char** dirs = load_dirs(dirs, comet_dir, opt, &file_ct);
+        size_t lib_sz = 64;
+
+        int arr[] = {5, 6, 7, 8, 10, 11};
+        int arr_size = sizeof(arr)/sizeof(int);
+
+        int has_libs = 1;
+        FILE* fp = fopen(dirs[5], "rb");
+        if (!fp) {
+            has_libs = 0;
+        }
+
+        if (has_libs) {
+            size_t lib_file_sz = fsize(fp);
+            BYEL("Lib file sz: %li\n", lib_file_sz);
+            char buffer[lib_sz];
+            while (fread(buffer, 1, lib_sz, fp) == lib_sz) {
+                char name[strlen(buffer) + 1];
+                memcpy(name, buffer, strlen(buffer));
+                name[strlen(buffer)] = 0;
+                printf("Lib name: %s\n", name);
+                char* main_lib = (char*)malloc(strlen(dirs[3]) + strlen(name) + 1);
+                memcpy(main_lib, dirs[3], strlen(dirs[3]));
+                memcpy(main_lib + strlen(dirs[3]), name, strlen(name));
+                main_lib[strlen(dirs[3]) + strlen(name)] = 0;
+                printf("Main lib file: %s\n", main_lib);
+                if (fremove(main_lib) < 0) {
+                    BRED("Failed to remove library '%s'\n", main_lib);
+                } 
+                free(main_lib);
+            }
+        }
+
+        fclose(fp);
+
+        for (int i = 0; i < arr_size; i++) {
+            if (exists(dirs[arr[i]])) {
+                if (path_type(dirs[arr[i]]) == 0) {
+                    int status = remove(dirs[arr[i]]);
+                    if (status == 0) {
+                        printf("File removed '%s' successfully.\n", dirs[arr[i]]);
+                    } else {
+                        printf("Error removing file '%s'.\n", dirs[arr[i]]);
+                    }
+                } else if (path_type(dirs[arr[i]]) == 1) {
+                    if (remove_dir_r(dirs[arr[i]]) < 0) {
+                        BRED("Failed to remove directory '%s'\n", dirs[arr[i]]);
+                    }
+                }
+            }
+        }
+
+        Package* p = (Package*)malloc(sizeof(Package));
+        int found = 0;
+        if (scan_index(p, opt, index_path, row_length, 0, 16, &found) < 0) {
+            BRED("Error scanning index!\n");
+            if (p) free(p);
+            free_dirs(dirs, file_ct);
+            return -1;
+        }
+
+        if (delete_index(index_path, row_length, p->rowid) < 0) {
+            BRED("Error removing package from index!\n");
+            if (p) free(p);
+            free_dirs(dirs, file_ct);
+            return -1;
+        }
+
+        if (p) free(p);
+        free_dirs(dirs, file_ct);
+
     } else if (strcmp(command, "newuser") == 0) {
         BYEL("Creating new user...\n");
         if (argc != 3) {
@@ -2314,15 +2445,6 @@ int main(int argc, char* argv[]) {
             printf("Error setting executable bit on temporary file.\n");
             return 1;
         }
-
-        // if (create_dir("/usr/local/comet/compress") < 0) {
-        //     BRED("Error initing comet dirs\n"); return -1;
-        // }
-
-        // if (chmod("/usr/local/comet/compress", 0755) == -1) {
-        //     printf("Error setting executable bit on temporary file.\n");
-        //     return 1;
-        // }
 
         if (create_dir("/usr/local/comet/env") < 0) {
             BRED("Error initing comet dirs\n"); return -1;

@@ -7,6 +7,7 @@ future release will require RSA/JWT to upload to registry.
 Registry will exist on remote server
 Registry will also need environments and more advanced version control.
 Need to distinguish private and public source code. (SFTP)
+get rid of -source directory at some point
 
 This is a package manager to help to power the Jericho Distributed System.
 This package manager is currently only for unix based systems

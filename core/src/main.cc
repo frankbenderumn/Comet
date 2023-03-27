@@ -2024,6 +2024,8 @@ int main(int argc, char* argv[]) {
         printf("%-32s: %s\n", "show <package_name>", "Get detailed information about a package");
         // printf("%-32s: %s\n", "update <package_name> <new_script>", "Update package with a new script");
         printf("%-32s: %s\n", "load", "Reads package names from a comet.txt file to install required packages");
+        printf("%-32s: %s\n", "purge <package>", "Removes a package and its cached build!\n");
+        printf("%-32s: %s\n", "purge -a/--all", "(Not recommended) Will clear all package installations (cached and environmental). Will require password.\n");
 
     } else if (strcmp(command, "load") == 0) {
         if (load_comet(&packages, comet_dir, (char*)index_path, row_length) < 0) {

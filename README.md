@@ -1,13 +1,19 @@
 # OVERVIEW
 
 # TODO
-still need a purge function
-and a dependencies manager
-future release will require RSA/JWT to upload to registry.
-Registry will exist on remote server
-Registry will also need environments and more advanced version control.
-Need to distinguish private and public source code. (SFTP)
-get rid of -source directory at some point
+[X] still need a purge function
+[] and a dependencies manager
+[] future release will require RSA/JWT to upload to registry.
+[] Registry will exist on remote server
+[] Registry will also need environments and more advanced version control.
+[] Need to distinguish private and public source code. (SFTP)
+[] get rid of -source directory at some point
+[] add module feature to allow bin manipulation of jericho, celerity, psql, mongo, tigergraph, etc.
+[] Execute modules through a spawned process private shell potentially? Cgroups?
+[] Generate script to establish users and groups. Run chown as need
+
+# Far future
+cross platform: 1. macosx, 2. windows
 
 This is a package manager to help to power the Jericho Distributed System.
 This package manager is currently only for unix based systems

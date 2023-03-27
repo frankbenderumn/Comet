@@ -1,6 +1,6 @@
-# OVERVIEW
+# Comet Package Manager
 
-# TODO
+## TODO
 [X] still need a purge function
 [] and a dependencies manager
 [] future release will require RSA/JWT to upload to registry.
@@ -12,8 +12,10 @@
 [] Execute modules through a spawned process private shell potentially? Cgroups?
 [] Generate script to establish users and groups. Run chown as need
 
-# Far future
+## Far future
 cross platform: 1. macosx, 2. windows
+
+## overview
 
 This is a package manager to help to power the Jericho Distributed System.
 This package manager is currently only for unix based systems

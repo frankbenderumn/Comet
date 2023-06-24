@@ -1,6 +1,7 @@
 #!/bin/bash
 
 ROOTDIR=`git rev-parse --show-toplevel`
+dos2unix ${ROOTDIR}/config/comet
 source ${ROOTDIR}/config/comet
 
 cd ${COMET}/source
@@ -9,5 +10,6 @@ mv ./Comet ./repo
 cd repo
 chmod +x ./bin/compile
 ./bin/compile
+sudo cp ./cmake-build/comet /usr/local/bin
 
 # placeholder to install from github and copy tui to /bin directory

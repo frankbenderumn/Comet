@@ -1,0 +1,7 @@
+export ARCH=x86_64
+export OS=linux
+export LD=so
+export DISTRO=ubuntu
+export DISTRO_VERSION=20.04
+export ROOT=/mnt/d/comet-test/comet
+export LD_LIBRARY_PATH=/mnt/d/comet-test/comet/deps/postgres/lib

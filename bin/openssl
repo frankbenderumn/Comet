@@ -12,8 +12,10 @@ if [[ "$1" == "install" ]]; then
     cd ../..
     mkdir -p ${ROOT}/include/openssl
     mkdir -p ${ROOT}/lib
-    sudo cp -r ${ROOT}/build/openssl/include/openssl ${ROOT}/include
-    sudo cp -r ${ROOT}/build/openssl/lib64/* ${ROOT}/lib
+    cp -r ${ROOT}/build/openssl/include/openssl ${ROOT}/include
+    mv ${ROOT}/build/openssl/lib64 ${ROOT}/build/openssl/lib
+    cp -r ${ROOT}/build/openssl/lib/* ${ROOT}/lib
+    rm -rf ${ROOT}/lib/pkgconfig
 else
     echo -e "\033[1;31mInvalid argument given to openssl package\033[0m"
 fi

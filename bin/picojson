@@ -6,8 +6,8 @@ if [[ "$1" == "install" ]]; then
     git clone https://github.com/kazuho/picojson.git
     mv picojson picojson-source
     cd ..
-    cp ./source/picojson-source/picojson.h ./include/picojson.h
-    # cp picojson.h ${COMET}/include/picojson.h
+    mkdir -p ${COMET}/include/picojson
+    cp ${COMET}/source/picojson-source/picojson.h ${COMET}/include/picojson/picojson.h
 else
     echo -e "\033[1;31mInvalid argument for package picojson\033[0m"
 fi

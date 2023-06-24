@@ -1,0 +1,47 @@
+#!/bin/bash
+ROOTDIR=`git rev-parse --show-toplevel`
+./bin/os
+apt-get install pkg-config
+apt-get install libssl-dev
+source ${ROOTDIR}/config/comet
+source ${ROOTDIR}/config/device
+source ${ROOTDIR}/config/mongo
+
+if [ "$1" == "install" ]; then
+    cd ${COMET}/source
+    wget https://github.com/mongodb/mongo-c-driver/releases/download/${C_VERSION}/mongo-c-driver-${C_VERSION}.tar.gz
+    tar xzf mongo-c-driver-${C_VERSION}.tar.gz
+    dos2unix mongo-c-driver-${C_VERSION}
+    mv mongo-c-driver-${C_VERSION} mongo-c-source
+    cd mongo-c-source
+    mkdir cmake
+    cd cmake
+    sudo cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=${COMET}/build/mongo-c \
+    -DCMAKE_PREFIX_PATH=${COMET}/build/mongo-c 
+
+    cmake --build .
+    sudo cmake --build . --target install
+    cd ../..
+
+    cd ${COMET}/source
+    wget https://github.com/mongodb/mongo-cxx-driver/releases/download/${CXX_VERSION}/mongo-cxx-driver-${CXX_VERSION}.tar.gz
+    tar -xzf mongo-cxx-driver-${CXX_VERSION}.tar.gz
+    dos2unix mongo-cxx-driver-${CXX_VERSION}
+    mv mongo-cxx-driver-${CXX_VERSION} mongo-cxx-source
+    cd mongo-cxx-source/build
+
+    sudo cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=${DB_PATH}/mongo-cxx \
+    -DCMAKE_PREFIX_PATH=${DB_PATH}/mongo-c \
+    -DCMAKE_INSTALL_RPATH=${DB_PATH}/mongo-cxx \
+    -DBSONCXX_POLY_USE_MNMLSTC=1
+
+    sudo cmake --build . --target EP_mnmlstc_core
+    sudo cmake --build .
+    sudo cmake --build . --target install
+    cd ${COMET}/source
+    sudo rm -f mongo-*.tar.gz
+fi

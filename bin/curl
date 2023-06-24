@@ -1,0 +1,21 @@
+#!/bin/bash
+
+ROOTDIR=`git rev-parse --show-toplevel`
+source ${ROOTDIR}/config/comet
+VERSION=7.79.1
+
+if [[ "$1" == "install" ]]; then
+    cd ${COMET}/source
+    wget https://curl.se/download/curl-${VERSION}.tar.gz
+    tar -xvzf curl-${VERSION}.tar.gz
+    mv curl-${VERSION} curl-source
+    cd curl-source
+    ./configure --prefix=${COMET}/build/curl --without-ssl
+    make -j
+    make -j install
+    cd ..
+    rm -rf curl-${VERSION}.tar.gz
+    mkdir -p ${COMET}/build/curl
+    cp -r ${COMET}/build/curl/include/curl ${COMET}/include/curl
+    cp -r ${COMET}/build/curl/lib/* ${COMET}/lib
+fi

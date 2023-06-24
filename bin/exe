@@ -1,0 +1,5 @@
+#!/bin/bash
+
+chmod +x ./bin/compile
+./bin/compile
+cp -rf ./build/bin/comet /bin

@@ -1,3 +1,5 @@
-config/
+config/comet
+config/token
 build/
 cmake-build/
+.internal/index

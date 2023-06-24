@@ -1,15 +1,21 @@
 #!/bin/bash
 
+# needs to be run in sudo
+
+# rm for testing purposes
+# rm -rf /usr/local/comet
+
 ROOTDIR=`git rev-parse --show-toplevel`
 dos2unix ${ROOTDIR}/config/comet
 source ${ROOTDIR}/config/comet
-
-cd ${COMET}/source
-git clone https://frankbenderumn:${TOKEN}@github.com/frankbenderumn/Comet.git
+mkdir -p ${COMET}
+cd ${COMET}
+git clone https://frankbenderumn@github.com/frankbenderumn/Comet.git
 mv ./Comet ./repo
 cd repo
 chmod +x ./bin/compile
 ./bin/compile
-sudo cp ./cmake-build/comet /usr/local/bin
+# sudo cp ./cmake-build/comet /usr/local/bin
 
-# placeholder to install from github and copy tui to /bin directory
+# # placeholder to install from github and copy tui to /bin directory
+# cp -rf ./build/bin/comet /bin

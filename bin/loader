@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# Function to display the progress bar
+function show_progress() {
+    local progress=$1     # Progress value (between 0 and 100)
+    local length=30       # Length of the progress bar
+    local completed=$((progress * length / 100))
+    local remaining=$((length - completed))
+
+    # Clear the line and move the cursor to the beginning
+    echo -ne "\r"
+
+    # Print the progress bar
+    printf "["
+    printf "%${completed}s" | tr ' ' '='
+    printf "%${remaining}s" | tr ' ' ' '
+    printf "] %d%%" "$progress"
+}
+
+# Example usage
+for ((i=0; i<=100; i+=5)); do
+    show_progress $i
+    sleep 0.1
+done
+
+# Print a newline after the progress is complete
+echo

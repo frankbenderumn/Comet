@@ -3,3 +3,6 @@ config/token
 build/
 cmake-build/
 .internal/index
+config/fixture
+aaa/*
+config/tokens

@@ -1,0 +1,24 @@
+#!/bin/bash
+COMET_DIR=$1
+source ${COMET_DIR}/.internal/config/tokens
+PACKAGE_DIR=$1/.internal/registry/prizm
+SOURCE_DIR=${PACKAGE_DIR}/source
+BUILD_DIR=${PACKAGE_DIR}/build
+ENV_DIR=${COMET_DIR}/env # will need to pass in as parameter at some point
+mkdir -p ${BUILD_DIR}
+echo -e "COMET DIR IS $1"
+if [[ "$2" == "install" ]]; then
+    cd ${PACKAGE_DIR}
+    git clone -q https://frankbenderumn:${GITHUB_TOKEN}@github.com/frankbenderumn/prizm-cxx.git
+    mv prizm-cxx source
+    cd source
+    mkdir -p cmake-build
+    cd cmake-build
+    cmake -DCMAKE_INSTALL_PREFIX=${BUILD_DIR} ..
+    make -j
+    sudo make -j install
+    sudo cp -r  ${BUILD_DIR}/lib/* ${COMET_DIR}/env/lib
+    sudo cp -r ${BUILD_DIR}/include/prizm ${COMET_DIR}/env/include/prizm
+else
+    echo -e "\033[1;31mInvalid argument for package prizm\033[0m"
+fi

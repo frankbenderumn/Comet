@@ -1,0 +1,7 @@
+#!/bin/bash
+
+if [[ -d "$1" ]]; then
+    cp -r manifest ${COMET_DIR}/.internal
+else
+    echo -e "\033[1;31mCan't upgrade directory. Directory does not exist!\033[0m"
+fi

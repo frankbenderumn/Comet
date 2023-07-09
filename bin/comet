@@ -1,0 +1,4 @@
+#!/bin/bash
+source /mnt/d/comet/aaa/.internal/config/settings
+export COMET_DIR=/mnt/d/comet/aaa
+./cmake-build/comet "$@"

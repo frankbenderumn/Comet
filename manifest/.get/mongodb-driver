@@ -1,0 +1,61 @@
+#!/bin/bash
+
+COMET_DIR=$3
+PACKAGE=$4
+REPO_NAME=$5
+URL=$6
+VERSION=$7
+METHOD=$2
+ENV=env
+
+C_VERSION=1.17.0
+CXX_VERSION=r3.6.7
+
+PACK_DIR=${COMET_DIR}/.internal/registry/${PACKAGE}
+BUILD_DIR=${COMET_DIR}/.internal/registry/${PACKAGE}/build
+
+if [ "${METHOD}" == "get" ]; then
+    mkdir -p ${PACK_DIR}
+    cd ${PACK_DIR}
+    wget https://github.com/mongodb/mongo-c-driver/releases/download/${C_VERSION}/mongo-c-driver-${C_VERSION}.tar.gz
+    tar xzf mongo-c-driver-${C_VERSION}.tar.gz
+    dos2unix mongo-c-driver-${C_VERSION}
+    mv mongo-c-driver-${C_VERSION} source-c
+
+    wget https://github.com/mongodb/mongo-cxx-driver/releases/download/${CXX_VERSION}/mongo-cxx-driver-${CXX_VERSION}.tar.gz
+    tar -xzf mongo-cxx-driver-${CXX_VERSION}.tar.gz
+    dos2unix mongo-cxx-driver-${CXX_VERSION}
+    mv mongo-cxx-driver-${CXX_VERSION} source-cxx
+
+elif [ "${METHOD}" == "install" ]; then
+    
+    cd ${PACK_DIR}/source-c
+    mkdir -p cmake-build
+    cd cmake-build
+    sudo cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=${PACK_DIR}/build-c \
+    -DCMAKE_PREFIX_PATH=${PACK_DIR}/build-c 
+
+    cmake --build .
+    sudo cmake --build . --target install
+    cd ../..
+
+    cd ${PACK_DIR}/source-cxx
+
+    sudo cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=${PACK_DIR}/build-cxx \
+    -DCMAKE_PREFIX_PATH=${PACK_DIR}/build-c \
+    -DCMAKE_INSTALL_RPATH=${PACK_DIR}/build-cxx \
+    -DBSONCXX_POLY_USE_MNMLSTC=1
+
+    sudo cmake --build . --target EP_mnmlstc_core
+    sudo cmake --build .
+    sudo cmake --build . --target install
+    
+    cd ${PACK_DIR}
+    sudo rm -f mongo-*.tar.gz
+else
+    :
+fi

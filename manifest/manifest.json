@@ -1,0 +1,127 @@
+[
+    {
+        "name": "prizm",
+        "source": "github-clone",
+        "latest": "0.0.3",
+        "repo": "Prizm-cxx",
+        "uri": "https://frankbenderumn:${GITHUB_TOKEN}@github.com/frankbenderumn/Prizm-cxx.git",
+        "versions": [
+            "0.0.3",
+            "0.0.2",
+            "0.0.1"
+        ],
+        "deps": [
+            "ssl",
+            "curl"
+        ]
+    },
+    {
+        "name": "celerity",
+        "source": "github-clone",
+        "source_info": {
+            "branch": "main",
+            "protected": "true"
+        },
+        "latest": "0.0.3",
+        "uri": "https://frankbenderumn:${GITHUB_TOKEN}@github.com/frankbenderumn/Celerity.git",
+        "repo": "Celerity",
+        "deps": [
+            "picojson",
+            "pugixml",
+            "mongodb",
+            "mongodb-driver",
+            "postgres",
+            "pqxx",
+            "crypto",
+            "ssl",
+            "curl",
+            "prizm",
+            "mongocxx",
+            "bsoncxx",
+            "rapidyaml"
+        ]
+    },
+    {
+        "name": "jericho",
+        "source": "github-clone",
+        "latest": "0.0.1",
+        "repo": "Jericho",
+        "uri": "https://frankbenderumn:${GITHUB_TOKEN}@github.com/frankbenderumn/Jericho.git"
+    },
+    {
+        "name": "picojson",
+        "source": "script",
+        "latest": "N/A",
+        "repo": "picojson",
+        "uri": "${GET}/picojson"
+    },
+    {
+        "name": "pugixml",
+        "source": "github-release",
+        "latest": "1.13",
+        "repo": "pugixml-1.13",
+        "versions": [
+            "1.13",
+            "1.12.1",
+            "1.12",
+            "1.11.4",
+            "1.11.3",
+            "1.11.2",
+            "1.11.1",
+            "1.11",
+            "1.10",
+            "1.9"
+        ],
+        "uri": "https://github.com/zeux/pugixml/releases/download/v${VERSION}/pugixml-${VERSION}.tar.gz"
+    },
+    {
+        "name": "mongodb",
+        "source": "script",
+        "latest": "6.0",
+        "versions": [
+            "6.0"
+        ],
+        "uri": "${GET}/mongodb"
+    },
+    {
+        "name": "mongodb-driver",
+        "source": "script",
+        "latest": "N/A",
+        "uri": "${GET}/mongodb-driver"
+    },
+    {
+        "name": "postgres",
+        "source": "script",
+        "latest": "15.0",
+        "uri": "${GET}/postgres"
+    },
+    {
+        "name": "pqxx",
+        "source": "script",
+        "latest": "7.7.5",
+        "versions": [],
+        "repo": "libpqxx",
+        "uri": "${GET}/pqxx"
+    },
+    {
+        "name": "ssl",
+        "source": "apt-get",
+        "repo": "libssl-dev",
+        "latest": "N/A",
+        "uri": "N/A"
+    },
+    {
+        "name": "curl",
+        "source": "apt-get",
+        "repo": "curl",
+        "latest": "N/A",
+        "uri": "N/A"
+    },
+    {
+        "name": "rapidyaml",
+        "source": "script",
+        "latest": "N/A",
+        "repo": "rapidyaml",
+        "uri": "${GET}/rapidyaml"
+    }
+]

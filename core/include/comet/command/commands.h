@@ -8,5 +8,8 @@
 #include "comet/command/purge.h"
 #include "comet/command/upload.h"
 #include "comet/command/script.h"
+#include "comet/command/uninstall.h"
+#include "comet/command/show.h"
+#include "comet/command/list.h"
 
 #endif

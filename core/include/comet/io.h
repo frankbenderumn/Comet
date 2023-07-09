@@ -4,157 +4,202 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "comet/color.h"
 
-int exists(const char* filename) {
-    return access(filename, F_OK) != -1;
-}
+/**
+ * @brief 
+ * 
+ * @param original_stdout 
+ */
+void disable_terminal(int* original_stdout);
 
-time_t updated_at(const char* filename) {
-    struct stat st;
-    if (stat(filename, &st) == -1) {
-        perror("Error in stat");
-        exit(EXIT_FAILURE);
-    }
-    return st.st_mtime;
-}
 
-time_t created_at(const char* filename) {
-    struct stat st;
-    if (stat(filename, &st) == -1) {
-        perror("Error in stat");
-        exit(EXIT_FAILURE);
-    }
-    return st.st_ctime;
-}
+/**
+ * @brief 
+ * 
+ * @param original_stdout 
+ */
+void enable_terminal(int* original_stdout);
 
-int create_dir(const char *path) {
-    struct stat st = {0};
-    int result = 0;
-    
-    if (stat(path, &st) == -1) {
-        result = mkdir(path, 0700);
-        if (result == -1) {
-            printf("Error: could not create directory\n");
-            return -1;
-        }
-        printf("Directory created successfully\n");
-    }
-    return 0;
-}
 
-int remove_dir(const char* path) {
-    DIR* dir = opendir(path);
-    struct dirent* entry;
+/**
+ * @brief Checks if file exists
+ * 
+ * @param filename the file to check
+ * @return int returns < 0 if error encountered
+ */
+int exists(const char* filename);
 
-    if (!dir) {
-        BRED("Error opening directory '%s'\n", path);
-        return -1;
-    }
 
-    while ((entry = readdir(dir)) != NULL) {
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-            continue;
-        }
+/**
+ * @brief Returns when file was last updated
+ * 
+ * @param filename the file to check
+ * @return time_t returns the unix timestamp of the update
+ */
+time_t updated_at(const char* filename);
 
-        char* filepath = (char*)malloc(strlen(path) + strlen(entry->d_name) + 2);
-        sprintf(filepath, "%s/%s", path, entry->d_name);
 
-        if (remove(filepath) == -1) {
-            BRED("Error removing file '%s'\n", filepath);
-            free(filepath);
-            continue;
-        }
+/**
+ * @brief Returns when file was last created
+ * 
+ * @param filename the file to check
+ * @return time_t returns the unix timestamp of the creation
+ */
+time_t created_at(const char* filename);
 
-        free(filepath);
-    }
 
-    if (rmdir(path) == -1) {
-        BRED("Error removing directory '%s'\n", path);
-        return - 1;
-    }
+/**
+ * @brief Create a dir object given the path
+ * 
+ * @param path the path of the directory
+ * @return int returns < 0 if error encountered
+ */
+int create_dir(const char *path);
 
-    closedir(dir);
-    return 0;
-}
 
-char** list_files(char* directory, int* count) {
-    DIR *dir;
-    struct dirent *ent;
-    char** files = NULL;
-    int i = 0;
-    
-    dir = opendir(directory);
-    if (dir != NULL) {
-        while ((ent = readdir(dir)) != NULL) {
-            if (strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0) {
-                char* file_name = (char*)malloc(strlen(directory) + strlen(ent->d_name) + 1);
-                strcpy(file_name, directory);
-                strcat(file_name, ent->d_name);
-                files = (char**)realloc(files, (i + 1) * sizeof(char*));
-                files[i++] = file_name;
-            }
-        }
-        closedir(dir);
-    } else {
-        perror("Unable to open directory");
-        exit(EXIT_FAILURE);
-    }
-    *count = i;
-    return files;
-}
+/**
+ * @brief remove directory specified in path
+ * 
+ * @param path the directory to remove
+ * @return int returns < 0 if error encountered
+ */
+int remove_dir(const char* path);
 
-unsigned char* read_bin(const char* filename, long* size) {
-    FILE* fp;
-    unsigned char* buffer;
-    size_t result;
 
-    fp = fopen(filename, "rb");
-    if (fp == NULL) {
-        *size = -1;
-        return NULL;
-    }
+/**
+ * @brief list files in directory and assign the number of files 
+ * 
+ * @param files reference variable to store files in directory
+ * @param directory the directory to list files from
+ * @param count the reference for the number of files
+ * @return return < 0 if error encountered
+ */
+int list_files(char*** files, char* directory, int* count);
 
-    fseek(fp, 0, SEEK_END);
-    *size = ftell(fp);
-    rewind(fp);
 
-    buffer = (unsigned char*)malloc(*size);
-    if (buffer == NULL) {
-        fclose(fp);
-        *size = -1;
-        return NULL;
-    }
+/**
+ * @brief Read binary file from the given file
+ * 
+ * @param filename the file to read
+ * @param size a reference to assign the size of the file
+ * @return unsigned* the byte string of the binary file
+ */
+unsigned char* read_bin(const char* filename, long* size);
 
-    result = fread(buffer, 1, *size, fp);
-    if (result != *size) {
-        free(buffer);
-        fclose(fp);
-        *size = -1;
-        return NULL;
-    }
 
-    fclose(fp);
-    return buffer;
-}
+/**
+ * @brief Write binary file to the given file path
+ * 
+ * @param filename the path of the file to write to
+ * @param data the data to write
+ * @param size the size of the data to write
+ */
+void write_bin(const char* filename, const void* data, size_t size);
 
-void write_bin(const char* filename, const void* data, size_t size) {
-    FILE* file = fopen(filename, "wb");
-    if (file == NULL) {
-        fprintf(stderr, "Error opening file '%s' for writing\n", filename);
-        exit(1);
-    }
-    fwrite(data, 1, size, file);
-    fclose(file);
-}
 
-int len(char** arr) {
-    int count = 0;
-    while (arr[count] != NULL) {
-        count++;
-    }
-    return count;
-}
+/**
+ * @brief Returns the length of a char** array
+ * 
+ * @param arr the array to get length of
+ * @return int the length of the array
+ */
+int len(char** arr);
+
+
+/**
+ * @brief determines whether path is a file. directory, or neither
+ * 
+ * @param path the path to determine type of
+ * @return int returns < 0 if error encountered
+ */
+int path_type(const char* path);
+
+
+/**
+ * @brief removes file with error checking. WARN: This function is probably
+ * redundant
+ * 
+ * @param path the path to remove 
+ * @return int returns < 0 if error encountered
+ */
+int fremove(const char* path);
+
+
+/**
+ * @brief Returns the size of the file pointer
+ * 
+ * @param fp the file pointer to seek on
+ * @return long the size of the file in bytes
+ */
+long fsize(FILE* fp);
+
+
+/**
+ * @brief returns remainder after last occurence of delimiter in string
+ * 
+ * @param result the remainder after the delim
+ * @param str the string to find char in
+ * @param delim the delimiter to find the last of
+ * @return int returns < 0 if error encountered
+ */
+int last_of(char* result, const char* str, char delim);
+
+
+/**
+ * @brief pads the byte string to a specified width
+ * 
+ * @param bytes the byte string to pad
+ * @param bytes_len the size of the byte string without padding
+ * @param width the desired width of the string, will pad if needed
+ * @return int returns < 0 if error encountered
+ */
+int pad(bytes_t bytes, size_t bytes_len, size_t width);
+
+
+/**
+ * @brief Frees the malloc'd directories created from the create_dirs function
+ * 
+ * @param dirs the malloc'd dirs
+ * @param sz the number of dirs in the array
+ */
+void free_dirs(char** dirs, int sz);
+
+
+/**
+ * @brief removes directory with any nesting
+ * 
+ * @param path the directory to remove
+ * @return int returns < 0 if error encountered
+ */
+int remove_dir_r(const char *path);
+
+
+/**
+ * @brief removes directory specified in path
+ * 
+ * @param path the directory to remove
+ * @return int returns < 0 if error encountered
+ */
+int remove_dir(const char* path);
+
+
+/**
+ * @brief loads directories of the package
+ * 
+ * @param dirs WARN: unknown
+ * @param comet_dir the directory where comet resides in
+ * @param package_name the name of the package 
+ * @param file_ct WARN: unknown
+ * @return char** 
+ */
+char** load_dirs(
+    char** dirs,
+    char* comet_dir,
+    const char* package_name,
+    int* file_ct
+);
 
 #endif

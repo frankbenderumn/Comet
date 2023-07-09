@@ -1,0 +1,51 @@
+#!/bin/bash
+ROOT_DIR=`git rev-parse --show-toplevel`
+COMET_DIR=/usr/local/comet
+echo -e "Please specify which path you want to store comet packages."
+echo -e "Press ENTER for default"
+echo -e "Default directory on ubuntu is \033[1;37m/usr/local/comet\033[0m:"
+read path
+
+if [[ ${path} != "" ]]; then
+    COMET_DIR=${path}
+fi
+
+echo -e "Directory is ${COMET_DIR}"
+
+echo -e "Is this an absolute path [Y/N]:"
+read abs
+
+if [[ abs != "Y" ]]; then
+    COMET_DIR=${ROOT_DIR}/${path}
+else
+    COMET_DIR=${path}
+fi
+
+if [[ -d "${COMET_DIR}" ]]; then
+    echo -e "Comet already installed"
+    :
+else
+    mkdir -p ${COMET_DIR}
+    mkdir -p ${COMET_DIR}/.internal/cache
+    mkdir -p ${COMET_DIR}/.internal/config
+    mkdir -p ${COMET_DIR}/.internal/package
+    mkdir -p ${COMET_DIR}/.internal/get
+    mkdir -p ${COMET_DIR}/env
+    mkdir -p ${COMET_DIR}/env/include
+    mkdir -p ${COMET_DIR}/env/lib
+    mkdir -p ${COMET_DIR}/env/bin
+    mkdir -p ${COMET_DIR}/env/script
+    mkdir -p ${COMET_DIR}/env/db
+    touch ${COMET_DIR}/.internal/index
+    echo -e "export COMET_TEST_DIR=${COMET_DIR}" > config/settings
+    cp config/settings ${COMET_DIR}/.internal/config
+    cp config/tokens ${COMET_DIR}/.internal/config
+    cp -r manifest ${COMET_DIR}/.internal
+    sudo rm -rf ./bin/comet
+    echo -e "#!/bin/bash" > ./bin/comet
+    echo -e "source ${COMET_DIR}/.internal/config/settings" >> ./bin/comet
+    echo -e "export COMET_DIR=${COMET_DIR}" >> ./bin/comet
+    echo -e "./cmake-build/comet \"\$@\"" >> ./bin/comet
+    dos2unix ./bin/comet
+    chmod +x ./bin/comet
+fi

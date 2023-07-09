@@ -1,14 +1,17 @@
 #!/bin/bash
-source config/tokens
+. config/tokens
+source config/settings
 ROOTDIR=`git rev-parse --show-toplevel`
-# echo -e "\033[1;35mAloha MF\033[0m"
+echo -e "\033[1;35mAloha MF\033[0m"
+echo -e "${GITHUB_TOKEN}"
 # mkdir ${ROOTDIR}/db
 if [[ "$1" == "install" ]]; then
-    cd /usr/local/comet/source
+    mkdir -p ${COMET_DIR}/source
+    cd ${COMET_DIR}/source
     git clone https://frankbenderumn:${GITHUB_TOKEN}@github.com/frankbenderumn/celerity.git
     chmod -R +x celerity
     cd celerity
-    ./comet
+    ./cometrc ${COMET_DIR}
 else
     echo -e "\033[1;31mInvalid argument for package celerity\033[0m"
 fi

@@ -37,7 +37,7 @@ int upload(int argc, char* argv[]) {
     bytes_t script_bin = read_bin(script, &sz);
     bytes_t write_bin = (bytes_t)malloc(sizeof(BYTE) * (sz + 64));
     BYTE sig[] = {"howdsdfsdfsdfsdfsdfsdf"};
-    if (pad(sig, 64) < 0) {
+    if (pad(sig, sz, 64) < 0) {
         BRED("Failed to pad signature!\n");
         free(write_bin);
         free(script_bin);

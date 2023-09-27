@@ -1,0 +1,4 @@
+#!/bin/bash
+source /usr/local/comet/.internal/config/settings
+source /usr/local/comet/.internal/config/tokens
+/bin/comet-exe "$@"

@@ -1,0 +1,3 @@
+export COMET_DIR=`pwd`/a
+export MANIFEST_PATH=`pwd`/manifest/manifest.json
+export TOKEN_PATH=`pwd`/config/tokens

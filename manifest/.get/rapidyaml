@@ -1,0 +1,36 @@
+#!/bin/bash
+
+COMET_DIR=$3
+PACKAGE=$4
+REPO_NAME=$5
+URL=$6
+VERSION=$7
+METHOD=$2
+ENV=$8
+
+PACK_DIR=${COMET_DIR}/.internal/registry/${PACKAGE}
+BUILD_DIR=${COMET_DIR}/.internal/registry/${PACKAGE}/build
+
+if [[ "${METHOD}" == "get" ]]; then
+    mkdir -p ${PACK_DIR}
+    cd ${PACK_DIR}
+    git clone --recursive https://github.com/biojppm/rapidyaml.git source
+elif [[ "${METHOD}" == "install" ]]; then
+    cd ${PACK_DIR}/source
+    mkdir -p cmake-build
+    cd cmake-build
+    cmake .. -DCMAKE_INSTALL_PREFIX=${BUILD_DIR}
+    make -j
+    make -j install
+    cd ${BUILD_DIR}
+    cp -r ${BUILD_DIR}/include ${COMET_DIR}/${ENV}/include/rapidyaml
+    rm -rf ${BUILD_DIR}/lib/cmake
+    cp -r ${BUILD_DIR}/lib/* ${COMET_DIR}/${ENV}/lib
+    cp -r ${BUILD_DIR}/include/rapidyaml/c4 ${COMET_DIR}/${ENV}/include
+elif [[ "${METHOD}" == "uninstall" ]]; then
+    :
+elif [[ "${METHOD}" == "purge" ]]; then
+    :
+else
+    echo -e "\033[1;31mE: Invalid command for ${PACKAGE} installer\033[0m"
+fi

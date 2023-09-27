@@ -1,0 +1,11 @@
+#!/bin/bash
+
+COMET_DIR=$3
+PACKAGE=$4
+REPO_NAME=$5
+URL=$6
+VERSION=$7
+METHOD=$2
+ENV=$8
+
+${COMET_DIR}/.internal/manifest/.get/${PACKAGE} $@

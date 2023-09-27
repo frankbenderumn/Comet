@@ -1,0 +1,33 @@
+#!/bin/bash
+COMET_DIR=$3
+PACKAGE=$4
+REPO_NAME=$5
+URL=$6
+VERSION=$7
+METHOD=$2
+ENV=$8
+
+PACK_DIR=${COMET_DIR}/.internal/registry/${PACKAGE}
+BUILD_DIR=${PACK_DIR}/build
+
+if [[ "${METHOD}" == "get" ]]; then
+    mkdir -p ${PACK_DIR}
+    cd ${PACK_DIR}
+    git clone https://github.com/jtv/libpqxx.git source
+    # mv ${REPO} source
+    cd source
+    git checkout ${VERSION}
+elif [[ "${METHOD}" == "install" ]]; then
+    # PSQL_DIR=${COMET_DIR}/.internal/registry/postgres
+    mkdir -p ${BUILD_DIR}
+    cd ${PACK_DIR}/source
+    ./configure PG_CONFIG=${PSQL_DIR}/bin/pg_config --prefix=${BUILD_DIR} \
+    --with-postgres-lib=${COMET_DIR}/${ENV}/lib \
+    --with-postgres-include=${COMET_DIR}/${ENV}/include/postgres/include \
+    --disable-documentation --enable-shared --disable-static CXXFLAGS=-std=c++17
+    make -j`nproc`
+    make install -j`nproc`
+    cp -rf ${BUILD_DIR}/include/pqxx ${COMET_DIR}/${ENV}/include
+    cp -rf ${BUILD_DIR}/lib/* ${COMET_DIR}/${ENV}/lib
+    rm -rf ${BUILD_DIR}/lib/pkgconfig
+fi

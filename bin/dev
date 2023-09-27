@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# There is currently an incredibly weird bug after compiling where 
+# the installed build will use an older binary even after it is recreated.
+# Have tried recreating in new environment, directory, etc. it is so very odd
+
+git init
+ROOT=`git rev-parse --show-toplevel`
+DEV_DIR=${ROOT}/a
+source ${DEV_DIR}/.internal/config/settings
+source ${DEV_DIR}/.internal/config/tokens
+valgrind --leak-check=full --show-leak-kinds=all ./build/bin/comet "$@"

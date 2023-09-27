@@ -1,0 +1,20 @@
+#!/bin/bash
+
+COMET_DIR=$3
+PACKAGE=$4
+REPO=$5
+URL=$6
+VERSION=$7
+METHOD=$2
+
+if [[ "${METHOD}" == "get" ]]; then
+    :
+elif [[ "${METHOD}" == "install" ]]; then
+    sudo apt-get install ${REPO}
+elif [[ "${METHOD}" == "update" ]]; then
+    :
+elif [[ "${METHOD}" == "uninstall" ]]; then
+    sudo apt-get remove ${REPO}
+elif [[ "${METHOD}" == "purge" ]]; then
+    :
+fi

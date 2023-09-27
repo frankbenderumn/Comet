@@ -1,0 +1,157 @@
+[
+    {
+        "name": "prizm",
+        "source": "github-clone",
+        "latest": "0.0.9",
+        "repo": "Prizm-cxx",
+        "uri": "https://frankbenderumn:${GITHUB_TOKEN}@github.com/frankbenderumn/Prizm-cxx.git",
+        "versions": [
+            "0.0.3",
+            "0.0.2",
+            "0.0.1"
+        ],
+        "deps": [
+            "picojson",
+            "pugixml"
+        ]
+    },
+    {
+        "name": "celerity",
+        "source": "github-clone",
+        "source_info": {
+            "branch": "main",
+            "protected": "true"
+        },
+        "latest": "0.0.3",
+        "uri": "https://frankbenderumn:${GITHUB_TOKEN}@github.com/frankbenderumn/Celerity.git",
+        "repo": "Celerity",
+        "deps": [
+            "picojson",
+            "pugixml",
+            "mongodb",
+            "mongodb-driver",
+            "postgres",
+            "pqxx",
+            "crypto",
+            "ssl",
+            "curl",
+            "prizm",
+            "mongocxx",
+            "bsoncxx",
+            "rapidyaml"
+        ]
+    },
+    {
+        "name": "jericho",
+        "source": "github-clone",
+        "latest": "0.0.1",
+        "repo": "Jericho",
+        "uri": "https://frankbenderumn:${GITHUB_TOKEN}@github.com/frankbenderumn/Jericho.git",
+        "deps": [
+            "celerity"
+        ]
+    },
+    {
+        "name": "picojson",
+        "source": "script",
+        "latest": "N/A",
+        "repo": "picojson",
+        "uri": "https://github.com/kazuho/picojson.git"
+    },
+    {
+        "name": "tiledb",
+        "source": "script",
+        "latest": "2.17.0",
+        "repo": "TileDB",
+        "uri": "https://github.com/TileDB-Inc/TileDB.git"
+    },
+    {
+        "name": "pugixml",
+        "source": "github-release",
+        "latest": "1.13",
+        "repo": "pugixml-1.13",
+        "versions": [
+            "1.13",
+            "1.12.1",
+            "1.12",
+            "1.11.4",
+            "1.11.3",
+            "1.11.2",
+            "1.11.1",
+            "1.11",
+            "1.10",
+            "1.9"
+        ],
+        "uri": "https://github.com/zeux/pugixml/releases/download/v${VERSION}/pugixml-${VERSION}.tar.gz"
+    },
+    {
+        "name": "mongodb",
+        "source": "script",
+        "latest": "6.0",
+        "repo": "mongodb",
+        "versions": [
+            "6.0"
+        ],
+        "uri": "${GET}/mongodb"
+    },
+    {
+        "name": "mongo-c",
+        "source": "script",
+        "latest": "1.17.0",
+        "uri": "${GET}/mongo-c",
+        "repo": "mongo-c"
+    },
+    {
+        "name": "mongo-cxx",
+        "source": "script",
+        "latest": "3.6.7",
+        "uri": "${GET}/mongo-cxx",
+        "repo": "mongo-cxx",
+        "deps": [
+            "mongo-c"
+        ]
+    },
+    {
+        "name": "postgres",
+        "source": "script",
+        "latest": "15.0",
+        "uri": "${GET}/postgres",
+        "repo": "postgres"
+    },
+    {
+        "name": "pqxx",
+        "source": "script",
+        "latest": "7.7.5",
+        "versions": [],
+        "repo": "libpqxx",
+        "uri": "${GET}/pqxx"
+    },
+    {
+        "name": "ssl",
+        "source": "apt-get",
+        "repo": "libssl-dev",
+        "latest": "N/A",
+        "uri": "N/A"
+    },
+    {
+        "name": "ssl-dev",
+        "source": "script",
+        "repo": "openssl",
+        "latest": "N/A",
+        "uri": "https://github.com/openssl/openssl.git"
+    },
+    {
+        "name": "curl",
+        "source": "apt-get",
+        "repo": "curl",
+        "latest": "N/A",
+        "uri": "N/A"
+    },
+    {
+        "name": "rapidyaml",
+        "source": "script",
+        "latest": "N/A",
+        "repo": "rapidyaml",
+        "uri": "${GET}/rapidyaml"
+    }
+]

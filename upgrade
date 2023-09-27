@@ -1,0 +1,10 @@
+#!/bin/bash
+if [[ -d "$1" ]]; then
+    sudo cp -r manifest $1/.internal
+else
+    sudo cp -r manifest ${COMET_DIR}/.internal
+fi
+
+sudo cp ./build/bin/comet /bin/comet-exe
+sudo cp ./build/lib/libcomet_lib.so /lib/libcomet_lib.so
+sudo cp ./bin/comet /bin

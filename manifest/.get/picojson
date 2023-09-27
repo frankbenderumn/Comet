@@ -1,0 +1,34 @@
+#!/bin/bash
+
+COMET_DIR=$3
+PACKAGE=$4
+REPO_NAME=$5
+URL=$6
+VERSION=$7
+METHOD=$2
+ENV=$8
+
+PACK_DIR=${COMET_DIR}/.internal/registry/${PACKAGE}
+
+if [[ "${METHOD}" == "get" ]]; then
+    if [[ ! -d ${PACK_DIR}/source ]]; then
+        mkdir -p ${COMET_DIR}/.internal/registry/${PACKAGE}
+        cd ${COMET_DIR}/.internal/registry/${PACKAGE}
+        echo -e "URL IS: ${URL}"
+        git clone ${URL}
+        mv ${REPO_NAME} source
+        mkdir -p ${PACK_DIR}/build/include
+        sudo cp -r ${PACK_DIR}/source/picojson.h ${PACK_DIR}/build/include
+    else
+        echo -e "\033[1;31mError: \033[0mPackage '${PACKAGE}' already downloaded!"
+        exit 2;
+    fi
+elif [[ "${METHOD}" == "install" ]]; then
+    sudo cp -r ${PACK_DIR}/source/picojson.h ${COMET_DIR}/${ENV}/include
+elif [[ "${METHOD}" == "update" ]]; then
+    :
+elif [[ "${METHOD}" == "uninstall" ]]; then
+    sudo rm -rf ${COMET_DIR}/${ENV}/picojson.h
+elif [[ "${METHOD}" == "purge" ]]; then
+    :
+fi

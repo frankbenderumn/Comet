@@ -1,0 +1,53 @@
+#!/bin/bash
+COMET_DIR=$3
+PACKAGE=$4
+REPO_NAME=$5
+URL=$6
+VERSION=$7
+METHOD=$2
+ENV=$8
+
+PACK_DIR=${COMET_DIR}/.internal/registry/${PACKAGE}
+BUILD_DIR=${PACK_DIR}/build
+
+echo -e "Version: ${VERSION}"
+echo -e "$5"
+
+if [[ "$2" == "get" ]]; then
+    echo -e "Getting postgres..."
+    sudo mkdir -p ${PACK_DIR}
+    cd ${PACK_DIR}
+    wget https://ftp.postgresql.org/pub/source/v${VERSION}/postgresql-${VERSION}.tar.gz
+    sudo tar -xf postgresql-${VERSION}.tar.gz
+    mv postgresql-${VERSION} source
+    rm -f postgresql-${VERSION}.tar.gz
+    :
+elif [[ "$2" == "install" ]]; then
+    echo -e "Installing postgres..."
+    cd ${PACK_DIR}/source
+    ./configure --prefix=${BUILD_DIR} --enable-shared
+    make -j`nproc`
+    sudo make install
+    # ${COMET}/build/postgres/bin/createuser -s celerity
+    sudo cp -r ${BUILD_DIR}/lib/* ${COMET_DIR}/${ENV}/lib
+    sudo cp -r ${BUILD_DIR}/include ${COMET_DIR}/${ENV}/include/postgres
+    sudo rm -rf ${BUILD_DIR}/lib/pkgconfig
+    sudo mkdir -p ${COMET_DIR}/${ENV}/db/postgres
+    chmod 700 ${COMET_DIR}/${ENV}/db/postgres
+    chown fbender ${COMET_DIR}/${ENV}/db/postgres
+    export PSQL=${BUILD_DIR}/bin
+    ${PSQL}/initdb ${COMET_DIR}/${ENV}/db/postgres
+    ${PSQL}/pg_ctl -D ${COMET_DIR}/${ENV}/db/postgres -l logfile start
+    ${PSQL}/createdb demodb
+    sudo cd /etc/ld.so.conf.d
+    FILE=libpq.conf
+    if [[ ! -e "${FILE}" ]]; then
+        sudo touch $FILE
+        echo "${COMET_DIR}/lib" >> $FILE
+        sudo ldconfig
+    fi
+elif [[ "$2" == "uninstall" ]]; then
+    :
+else
+    :
+fi

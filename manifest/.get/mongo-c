@@ -1,0 +1,47 @@
+#!/bin/bash
+
+COMET_DIR=$3
+PACKAGE=$4
+REPO_NAME=$5
+URL=$6
+VERSION=$7
+METHOD=$2
+ENV=$8
+
+PACK_DIR=${COMET_DIR}/.internal/registry/${PACKAGE}
+BUILD_DIR=${PACK_DIR}/build
+SOURCE_DIR=${PACK_DIR}/source
+
+if [ "${METHOD}" == "get" ]; then
+    if ! [ -d ${SOURCE_DIR} ]; then
+        mkdir -p ${PACK_DIR}
+        cd ${PACK_DIR}
+        wget https://github.com/mongodb/mongo-c-driver/releases/download/${VERSION}/mongo-c-driver-${VERSION}.tar.gz
+        tar xzf mongo-c-driver-${VERSION}.tar.gz
+        dos2unix mongo-c-driver-${VERSION}
+        mv mongo-c-driver-${VERSION} ${SOURCE_DIR}
+    fi
+
+elif [ "${METHOD}" == "install" ]; then
+    
+    cd ${SOURCE_DIR}
+    mkdir -p cmake-build
+    cd cmake-build
+    sudo cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=${BUILD_DIR} \
+    -DCMAKE_PREFIX_PATH=${BUILD_DIR} 
+
+    cmake --build .
+    sudo cmake --build . --target install
+    cd ../..
+    
+    cd ${PACK_DIR}
+    sudo rm -f mongo-*.tar.gz
+
+    cp -r ${PACK_DIR}/build/bin/* ${COMET_DIR}/${ENV}/bin
+    cp -r ${PACK_DIR}/build/include/* ${COMET_DIR}/${ENV}/include
+    cp -r ${PACK_DIR}/build/lib/* ${COMET_DIR}/${ENV}/lib
+else
+    :
+fi

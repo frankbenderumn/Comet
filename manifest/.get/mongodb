@@ -1,0 +1,57 @@
+#!/bin/bash
+
+COMET_DIR=$3
+PACKAGE=$4
+REPO_NAME=$5
+URL=$6
+VERSION=$7
+METHOD=$2
+ENV=$8
+
+PACK_DIR=${COMET_DIR}/.internal/registry/${PACKAGE}
+BUILD_DIR=${COMET_DIR}/.internal/registry/${PACKAGE}/build
+
+mkdir -p ${BUILD_DIR}
+
+if [[ "${METHOD}" == "get" ]]; then
+    ${COMET_DIR}/.internal/manifest/script/os ${COMET_DIR}
+    source ${COMET_DIR}/.internal/manifest/config/device
+    if [[ "$OS" == "Null" ]]; then
+        echo -e "\033[1;31mFailed to install mongodb. \
+        Unknown operating system type encountered.\033[0m"
+    else
+        mkdir -p ${PACK_DIR}
+        cd ${PACK_DIR}
+        OSDIR=$OS
+        if [[ "$OS" == "macos" ]] && [[ "$ARCH" == "arm64" ]]; then 
+            TAR=mongodb-macos-arm64-6.0.0-rc10
+            OSDIR=osx
+            wget "https://fastdl.mongodb.org/$OSDIR/$TAR.tgz"
+            tar -zxvf $TAR.tgz
+            mv ${DB_PATH}/mongodb-macos-aarch64-6.0.0-rc10 source
+        else
+            #may be able to source from config/device
+            DISTRO=`cat /etc/os-release | grep -E 'ID=[a-zA-Z0-9]+'`
+            DISTRO=`echo "$DISTRO" | grep -E -o '=(.+)'`
+            DISTRO=${DISTRO#"="}
+            echo -e "\033[1;33mDISTRO IS: $DISTRO\033[0m"
+            DISTRO_VERSION=`cat /etc/os-release | grep -E 'VERSION_ID="([0-9]+.[0-9]+)+"'`
+            DISTRO_VERSION=`echo "$DISTRO_VERSION" | grep -E -o '"(.+)"'`
+            DISTRO_VERSION=${DISTRO_VERSION#"\""}
+            DISTRO_VERSION=${DISTRO_VERSION%"\""}
+            DISTRO_VERSION="${DISTRO_VERSION//.}"
+            echo -e "\033[1;33mDISTRO VERSION IS: $DISTRO_VERSION\033[0m"
+            TAR=mongodb-$OS-$ARCH-$DISTRO$DISTRO_VERSION-
+            DL="https://fastdl.mongodb.org/$OSDIR/$TAR.tgz"
+            echo -e "Mongo dl path is: $DL"
+            wget "$DL"
+            mkdir -p ${PACK_DIR}/source
+            tar -zxvf $TAR.tgz -C ${PACK_DIR}/source --strip-components=1
+        fi
+        # rm -f mongodb-*.tgz
+    fi
+elif [[ "$2" == "install" ]]; then
+    sudo cp -r ${PACK_DIR}/source/bin ${COMET_DIR}/${ENV}/bin/${PACKAGE}/build
+else
+    :
+fi

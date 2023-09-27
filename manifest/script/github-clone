@@ -1,0 +1,80 @@
+#!/bin/bash
+
+COMET_DIR=$3
+PACKAGE=$4
+REPO_NAME=$5
+URL=$6
+VERSION=$7
+ENV=$8
+METHOD=$2
+
+PACK_DIR=${COMET_DIR}/.internal/registry/${PACKAGE}
+
+if [[ "${METHOD}" == "get" ]]; then
+    mkdir -p "${COMET_DIR}/.internal/registry/${PACKAGE}"    
+    if [[ ! -d "${PACK_DIR}/source" ]]; then
+        cd ${COMET_DIR}/.internal/registry/${PACKAGE}
+
+        git clone ${URL}
+
+        if [ $? -eq 0 ]; then
+            echo "Error: clone failed"
+            exit 1;
+        fi
+
+        mv ${REPO_NAME} source
+    else
+        exit 2
+    fi
+elif [[ "${METHOD}" == "install" ]]; then
+    BUILD_DIR=${COMET_DIR}/.internal/registry/${PACKAGE}/build
+    mkdir -p ${BUILD_DIR}
+    cd ${COMET_DIR}/.internal/registry/${PACKAGE}/source
+    mkdir -p cmake-build
+    cd cmake-build
+    cmake -DCMAKE_INSTALL_PREFIX=${BUILD_DIR} -Wno-dev .. > /dev/null 2>&1
+    make --quiet -j > /dev/null 2>&1
+    sudo make --quiet -j install > /dev/null 2>&1
+    
+    if [[ -d ${BUILD_DIR}/include/${PACKAGE} ]]; then    
+        sudo cp -r ${BUILD_DIR}/include/${PACKAGE} ${COMET_DIR}/${ENV}/include
+    fi
+
+    if [[ -d ${BUILD_DIR} ]]; then
+        sudo cp -r ${BUILD_DIR}/lib/* ${COMET_DIR}/${ENV}/lib
+    fi
+
+    if [[ -d ${BUILD_DIR} ]]; then
+        sudo cp -r ${BUILD_DIR}/bin/* ${COMET_DIR}/${ENV}/bin
+    fi
+
+elif [[ "${METHOD}" == "update" ]]; then
+    BUILD_DIR=${COMET_DIR}/.internal/registry/${PACKAGE}
+    sudo rm -rf ${BUILD_DIR}
+    mkdir -p ${COMET_DIR}/.internal/registry/${PACKAGE}
+    git clone ${URL}
+    mv ${REPO_NAME} source
+    cd ${COMET_DIR}/.internal/registry/${PACKAGE}/source
+    mkdir -p cmake-build
+    cd cmake-build
+    cmake -DCMAKE_INSTALL_PREFIX=${BUILD_DIR} ..
+    make -j
+    sudo make -j install
+    sudo cp -r ${BUILD_DIR}/include/${PACKAGE} ${COMET_DIR}/${ENV}/include
+    sudo cp -r ${BUILD_DIR}/lib/* ${COMET_DIR}/${ENV}/lib
+    sudo cp -r ${BUILD_DIR}/bin/* ${COMET_DIR}/${ENV}/bin
+    sudo cp -r ${BUILD_DIR}/script/${PACKAGE} ${COMET_DIR}/${ENV}/script
+
+elif [[ "${METHOD}" == "uninstall" ]]; then
+    sudo rm -rf ${COMET_DIR}/${ENV}/include/${PACKAGE}
+    sudo rm -rf ${COMET_DIR}/${ENV}/lib/*${PACKAGE}.so
+    sudo rm -rf ${COMET_DIR}/${ENV}/bin/${PACKAGE}
+    sudo rm -rf ${COMET_DIR}/${ENV}/script/${PACKAGE}    
+elif [[ "${METHOD}" == "purge" ]]; then
+    sudo rm -rf ${COMET_DIR}/${ENV}/include/${PACKAGE}
+    sudo rm -rf ${COMET_DIR}/${ENV}/lib/*
+    sudo rm -rf ${COMET_DIR}/${ENV}/bin/${PACKAGE}
+    sudo rm -rf ${COMET_DIR}/${ENV}/script/${PACKAGE}    
+    sudo rm -rf ${COMET_DIR}/registry/${PACKAGE}
+    sudo rm -rf ${COMET_DIR}/.internal/registry/${PACKAGE}
+fi

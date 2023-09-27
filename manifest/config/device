@@ -1,0 +1,5 @@
+export ARCH=x86_64
+export OS=linux
+export LD=so
+export DISTRO=ubuntu
+export DISTRO_VERSION=20.04

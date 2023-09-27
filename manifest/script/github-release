@@ -1,0 +1,73 @@
+#!/bin/bash
+
+COMET_DIR=$3
+PACKAGE=$4
+REPO=$5
+URL=$6
+VERSION=$7
+COMPRESS=$8
+BUILD_METHOD=$9
+METHOD=$2
+ENV=$8
+
+if [[ "${METHOD}" == "get" ]]; then
+    echo -e "\033[1;33mGetting...\033[0m"
+    echo -e "\033[0;33mURL: ${URL}\033[0m"
+    echo -e "\033[0;33mREPO: ${REPO}.tar.gz\033[0m"
+    mkdir -p ${COMET_DIR}/.internal/registry/${PACKAGE}
+    cd ${COMET_DIR}/.internal/registry/${PACKAGE}
+    wget -q ${URL}
+    tar -xf ${REPO}.tar.gz
+    mv ${REPO} source
+    # rm -f ${REPO}.tar.gz
+elif [[ "${METHOD}" == "install" ]]; then
+    BUILD_DIR=${COMET_DIR}/.internal/registry/${PACKAGE}/build
+    cd ${COMET_DIR}/.internal/registry/${PACKAGE}/source
+    mkdir -p cmake-build
+    cd cmake-build
+    echo -e "\033[1;33mBuild Dir: ${BUILD_DIR}\033[0m"
+    cmake -DCMAKE_INSTALL_PREFIX=${BUILD_DIR} ..
+    make -j
+    sudo make -j install
+    mkdir -p ${COMET_DIR}/${ENV}/include/${PACKAGE}
+    sudo cp -r ${BUILD_DIR}/include/* ${COMET_DIR}/${ENV}/include/${PACKAGE}
+    sudo cp -r ${BUILD_DIR}/lib/* ${COMET_DIR}/${ENV}/lib
+    sudo cp -r ${BUILD_DIR}/bin/* ${COMET_DIR}/${ENV}/bin
+    sudo cp -r ${BUILD_DIR}/script/${PACKAGE} ${COMET_DIR}/${ENV}/script
+    sudo rm -rf ${COMET_DIR}/${ENV}/lib/cmake
+    sudo rm -rf ${COMET_DIR}/${ENV}/lib/pkgconfig
+elif [[ "${METHOD}" == "update" ]]; then
+    echo -e "\033[1;35mUpdating...\033[0m"
+    BUILD_DIR=${COMET_DIR}/.internal/registry/${PACKAGE}
+    sudo rm -rf ${BUILD_DIR}
+    mkdir -p ${COMET_DIR}/.internal/registry/${PACKAGE}
+    git clone ${URL}
+    mv ${REPO_NAME} source
+    cd ${COMET_DIR}/.internal/registry/${PACKAGE}/source
+    mkdir -p cmake-build
+    cd cmake-build
+    echo -e "\033[1;33mBuild Dir: ${BUILD_DIR}\033[0m"
+    cmake -DCMAKE_INSTALL_PREFIX=${BUILD_DIR} ..
+    make -j
+    sudo make -j install
+    sudo cp -r ${BUILD_DIR}/include/* ${COMET_DIR}/${ENV}/include/${PACKAGE}
+    sudo cp -r ${BUILD_DIR}/lib/* ${COMET_DIR}/${ENV}/lib
+    sudo cp -r ${BUILD_DIR}/bin/* ${COMET_DIR}/${ENV}/bin
+    sudo cp -r ${BUILD_DIR}/script/${PACKAGE} ${COMET_DIR}/${ENV}/script
+    sudo rm -rf ${COMET_DIR}/${ENV}/lib/cmake
+    sudo rm -rf ${COMET_DIR}/${ENV}/lib/pkgconfig
+elif [[ "${METHOD}" == "uninstall" ]]; then
+    echo -e "\033[1;35mUninstalling...\033[0m"
+    echo -e "${COMET_DIR}"
+    sudo rm -rf ${COMET_DIR}/${ENV}/include/${PACKAGE}
+    sudo rm -rf ${COMET_DIR}/${ENV}/lib/*${PACKAGE}.so
+    sudo rm -rf ${COMET_DIR}/${ENV}/bin/${PACKAGE}
+    sudo rm -rf ${COMET_DIR}/${ENV}/script/${PACKAGE}    
+elif [[ "${METHOD}" == "purge" ]]; then
+    sudo rm -rf ${COMET_DIR}/${ENV}/include/${PACKAGE}
+    sudo rm -rf ${COMET_DIR}/${ENV}/lib/*
+    sudo rm -rf ${COMET_DIR}/${ENV}/bin/${PACKAGE}
+    sudo rm -rf ${COMET_DIR}/${ENV}/script/${PACKAGE}    
+    sudo rm -rf ${COMET_DIR}/registry/${PACKAGE}
+    sudo rm -rf ${COMET_DIR}/.internal/registry/${PACKAGE}
+fi

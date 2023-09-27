@@ -1,0 +1,8 @@
+{
+    "sumthin": [
+        "prizm==0.0.1",
+        "picojson",
+        "pugixml>=0.6",
+        "rapidyaml"
+    ]
+}

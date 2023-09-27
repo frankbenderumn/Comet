@@ -1,0 +1,65 @@
+#!/bin/bash
+
+sudo apt-get update
+sudo apt-get install valgrind build-essential cmake dos2unix
+
+# TODO: Need to improve platform independence, .so/.a and other additions
+git init
+ROOT_DIR=`git rev-parse --show-toplevel`
+COMET_DIR=/usr/local/comet
+echo -e "Please specify which path you want to store comet packages."
+echo -e "Press ENTER for default"
+echo -ne "Default directory on ubuntu is \033[1;37m/usr/local/comet\033[0m:\\n>> "
+read path
+
+if [[ ${path} != "" ]]; then
+    COMET_DIR=${path}
+fi
+
+if [[ ${COMET_DIR} != "/usr/local/comet" ]]; then
+
+    echo -ne "Is this an absolute path [Y/N]:\\n>> "
+    read abs
+
+    if [[ abs != "Y" ]]; then
+        COMET_DIR=${ROOT_DIR}/${path}
+    else
+        COMET_DIR="./${path}"
+    fi
+
+fi
+
+echo -e "Directory is ${COMET_DIR}"
+
+if [[ -d "${COMET_DIR}" ]]; then
+    echo -e "Comet already installed"
+    :
+else
+    mkdir -p ${COMET_DIR}
+    mkdir -p ${COMET_DIR}/.internal/config
+    mkdir -p ${COMET_DIR}/.internal/registry
+    mkdir -p ${COMET_DIR}/env
+    mkdir -p ${COMET_DIR}/env/include
+    mkdir -p ${COMET_DIR}/env/lib
+    mkdir -p ${COMET_DIR}/env/bin
+    mkdir -p ${COMET_DIR}/env/script
+    mkdir -p ${COMET_DIR}/env/db
+    dos2unix ./comet.tokens
+    dos2unix ./comet.lock
+    echo -e "env" >> ${COMET_DIR}/envfile
+    echo -e "export COMET_DIR=\"${COMET_DIR}\"" > config/settings
+    cp config/settings ${COMET_DIR}/.internal/config
+    cp -r manifest ${COMET_DIR}/.internal
+    sudo rm -rf ./bin/comet
+    echo -e "#!/bin/bash" > ./bin/comet
+    touch ${COMET_DIR}/.internal/config/tokens
+    echo -e "source ${COMET_DIR}/.internal/config/settings" >> ./bin/comet
+    echo -e "source ${COMET_DIR}/.internal/config/tokens" >> ./bin/comet
+    sudo cp ./build/bin/comet /bin/comet-exe
+    sudo cp ./build/lib/libcomet_lib.so /lib/libcomet_lib.so
+    echo -e "/bin/comet-exe \"\$@\"" >> ./bin/comet
+    chmod +x ./bin/comet
+    ./bin/comet token-load
+    sudo cp ./bin/comet /bin
+    source ${COMET_DIR}/.internal/config/settings
+fi

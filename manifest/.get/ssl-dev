@@ -1,0 +1,32 @@
+#!/bin/bash
+
+COMET_DIR=$3
+PACKAGE=$4
+REPO_NAME=$5
+URL=$6
+VERSION=$7
+METHOD=$2
+ENV=$8
+
+PACK_DIR=${COMET_DIR}/.internal/registry/${PACKAGE}
+BUILD_DIR=${COMET_DIR}/.internal/registry/${PACKAGE}/build
+
+
+if [[ "${METHOD}" == "get" ]]; then
+    mkdir -p ${PACK_DIR}
+    cd ${PACK_DIR}
+    git clone https://github.com/openssl/openssl.git
+    mv openssl source
+elif [[ "${METHOD}" == "install" ]]; then
+    mkdir -p ${BUILD_DIR}
+    cd ${PACK_DIR}/source
+    ./Configure --prefix=${BUILD_DIR} --openssldir=${BUILD_DIR} '-Wl,-rpath,$(LIBRPATH)'
+    make -j`nproc`
+    sudo make -j`nproc` install
+    cp -r ${BUILD_DIR}/include/openssl ${COMET_DIR}/${ENV}/include
+    mv ${BUILD_DIR}/lib64 ${COMET_DIR}/${ENV}/lib
+    cp -r ${BUILD_DIR}/lib/* ${COMET_DIR}/${ENV}/lib
+    rm -rf ${BUILD_DIR}/lib/pkgconfig
+else
+    :
+fi
